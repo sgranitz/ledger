@@ -852,7 +852,7 @@ function switchStatsTab(tab) {
   currentStatsType = tab;
   document.getElementById('statsTabVinyl').classList.toggle('active', tab === 'vinyl');
   document.getElementById('statsTabBooks').classList.toggle('active', tab === 'books');
-  renderStats();
+  renderStats(); // async, fire and forget
 }
 
 // ════════════════════════════════════════════
@@ -991,11 +991,20 @@ function renderBookCard(item) {
 // ════════════════════════════════════════════
 // STATS
 // ════════════════════════════════════════════
-function renderStats() {
+async function renderStats() {
   const el = document.getElementById('statsContent');
   if (!vaultHandle) {
     el.innerHTML = '<div class="stat-card"><div class="loading-row">connect your vault to see stats</div></div>';
     return;
+  }
+
+  // Load full collections if not yet cached
+  if (vinylCollection.length === 0 && vinylDirHandle) {
+    el.innerHTML = '<div class="stat-card"><div class="loading-row"><span class="spinner"></span> loading collection for stats...</div></div>';
+    vinylCollection = await readAllMdFiles(vinylDirHandle);
+  }
+  if (booksCollection.length === 0 && booksDirHandle) {
+    booksCollection = await readAllMdFiles(booksDirHandle);
   }
 
   if (currentStatsType === 'vinyl') {
@@ -1003,6 +1012,29 @@ function renderStats() {
   } else {
     el.innerHTML = renderBookStats();
   }
+}
+
+async function readAllMdFiles(dirHandle) {
+  if (!dirHandle) return [];
+  const handles = [];
+  for await (const [name, handle] of dirHandle.entries()) {
+    if (handle.kind === 'file' && name.endsWith('.md')) handles.push({ name, handle });
+  }
+  const BATCH = 80;
+  const items = [];
+  for (let i = 0; i < handles.length; i += BATCH) {
+    const batch = handles.slice(i, i + BATCH);
+    const results = await Promise.all(batch.map(async ({ name, handle }) => {
+      try {
+        const file = await handle.getFile();
+        const text = await file.text();
+        const fm = parseFrontmatter(text);
+        return fm ? { filename: name, ...fm } : null;
+      } catch(e) { return null; }
+    }));
+    results.forEach(r => r && items.push(r));
+  }
+  return items;
 }
 
 function renderVinylStats() {
