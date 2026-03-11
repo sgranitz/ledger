@@ -722,15 +722,29 @@ async function loadCollections() {
 
 async function readMdFiles(dirHandle) {
   const items = [];
+  const handles = [];
+
+  // First pass: collect all file handles (fast)
   for await (const [name, handle] of dirHandle.entries()) {
     if (handle.kind !== 'file' || !name.endsWith('.md')) continue;
-    try {
-      const file = await handle.getFile();
-      const text = await file.text();
-      const fm = parseFrontmatter(text);
-      if (fm) items.push({ filename: name, ...fm });
-    } catch(e) { /* skip malformed */ }
+    handles.push({ name, handle });
   }
+
+  // Second pass: read all files in parallel batches of 50
+  const BATCH = 50;
+  for (let i = 0; i < handles.length; i += BATCH) {
+    const batch = handles.slice(i, i + BATCH);
+    const results = await Promise.all(batch.map(async ({ name, handle }) => {
+      try {
+        const file = await handle.getFile();
+        const text = await file.text();
+        const fm = parseFrontmatter(text);
+        return fm ? { filename: name, ...fm } : null;
+      } catch(e) { return null; }
+    }));
+    results.forEach(r => r && items.push(r));
+  }
+
   return items;
 }
 
