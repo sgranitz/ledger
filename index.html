@@ -846,6 +846,8 @@ function parseRating(val) {
   // Emoji stars: count ⭐ characters
   return [...s].filter(c => c === '⭐' || c === '★').length;
 }
+
+function parseFrontmatter(text) {
   // Normalize line endings (Windows CRLF → LF)
   text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const match = text.match(/^---\n([\s\S]*?)\n---/);
