@@ -820,14 +820,32 @@ async function buildIndex(dirHandle, field) {
 // Extract a single YAML field value from partial file text (handles wikilinks like [[Name]])
 function extractField(text, field) {
   text = text.replace(/\r\n/g, '\n');
-  const re = new RegExp(`^${field}:\\s*(.+)$`, 'm');
-  const m = text.match(re);
-  if (!m) return '';
-  // Handle wikilink arrays like: ["[[Artist Name]]"] or [[Artist Name]]
-  return m[1].replace(/\[\[|\]\]|"|'/g, '').trim();
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Inline: "artist: Some Value"
+    const inlineMatch = line.match(new RegExp(`^${field}:\\s*(.+)$`));
+    if (inlineMatch) {
+      return inlineMatch[1].replace(/\[\[|\]\]|"|'/g, '').trim();
+    }
+    // List field: "artist:" followed by "  - [[Value]]" on next line
+    if (line.match(new RegExp(`^${field}:\\s*$`)) && lines[i+1]?.match(/^\s+-/)) {
+      const listVal = lines[i+1].replace(/^\s+-\s*/, '').replace(/\[\[|\]\]|"|'/g, '').trim();
+      return listVal;
+    }
+  }
+  return '';
 }
 
-function parseFrontmatter(text) {
+function parseRating(val) {
+  if (!val) return 0;
+  const s = String(val).trim();
+  // Numeric string
+  const n = parseInt(s);
+  if (!isNaN(n)) return n;
+  // Emoji stars: count ⭐ characters
+  return [...s].filter(c => c === '⭐' || c === '★').length;
+}
   // Normalize line endings (Windows CRLF → LF)
   text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const match = text.match(/^---\n([\s\S]*?)\n---/);
@@ -850,14 +868,18 @@ function parseFrontmatter(text) {
       result[currentKey].push(val);
     } else if (keyMatch) {
       currentKey = keyMatch[1];
-      const val = keyMatch[2].trim().replace(/^"(.*)"$/, '$1').replace(/\[\[.*?\|(.*?)\]\]/, '$1').replace(/\[\[(.*?)\]\]/, '$1');
-      if (val === '' || val === 'null') {
+      const raw = keyMatch[2].trim();
+      const val = raw.replace(/^"(.*)"$/, '$1').replace(/\[\[.*?\|(.*?)\]\]/, '$1').replace(/\[\[(.*?)\]\]/, '$1');
+      if (raw === '' || raw === 'null') {
         result[currentKey] = null;
-        inList = true;
+        inList = true;  // next lines may be list items
       } else {
         result[currentKey] = val;
         inList = false;
       }
+    } else if (line.trim() === '' || (line.length > 0 && !line.startsWith(' '))) {
+      // Non-list, non-key line resets inList
+      inList = false;
     }
   }
 
@@ -1005,7 +1027,7 @@ function renderVinylCard(item) {
   const year = item.year || '';
   const color = item.color || '';
   const genres = Array.isArray(item.genre) ? item.genre.slice(0,1) : (item.genre ? [item.genre] : []);
-  const rating = item.rating ? '⭐'.repeat(parseInt(item.rating)) : '';
+  const rating = item.rating ? '⭐'.repeat(parseRating(item.rating)) : '';
   const cover = item._cover || '';
 
   return `<div class="coll-card">
@@ -1127,13 +1149,13 @@ function renderVinylStats() {
   const maxArtist = topArtists[0]?.[1] || 1;
 
   // Avg rating
-  const rated = c.filter(item => item.rating && parseInt(item.rating) > 0);
-  const avgRating = rated.length ? (rated.reduce((s,i) => s + parseInt(i.rating), 0) / rated.length).toFixed(1) : '—';
+  const rated = c.filter(item => item.rating && parseRating(item.rating) > 0);
+  const avgRating = rated.length ? (rated.reduce((s,i) => s + parseRating(i.rating), 0) / rated.length).toFixed(1) : '—';
 
   // Favorites (rating >= 7)
   const favorites = c
-    .filter(item => item.rating && parseInt(item.rating) >= 7)
-    .sort((a,b) => parseInt(b.rating) - parseInt(a.rating));
+    .filter(item => item.rating && parseRating(item.rating) >= 7)
+    .sort((a,b) => parseRating(b.rating) - parseRating(a.rating));
 
   return `
   <div class="stats-grid">
@@ -1147,25 +1169,6 @@ function renderVinylStats() {
       <div class="stat-number">${avgRating}</div>
       <div class="stat-sublabel">${rated.length} rated</div>
     </div>
-
-    ${favorites.length > 0 ? `
-    <div class="stat-card full">
-      <div class="stat-label">favorites <span style="opacity:0.45;font-size:10px;margin-left:6px">rated 7 or above · ${favorites.length} records</span></div>
-      <div class="fav-grid">
-        ${favorites.map(item => {
-          const title = item.title || item.filename?.replace('.md','') || '—';
-          const artist = Array.isArray(item.artist) ? item.artist[0]?.replace(/\[\[|\]\]/g,'') : (item.artist || '—');
-          const cover = item._cover || '';
-          const rating = parseInt(item.rating);
-          return `<div class="fav-card">
-            ${cover ? `<img class="fav-cover" src="${cover}" alt="" loading="lazy">` : `<div class="fav-cover fav-cover-placeholder">♪</div>`}
-            <div class="fav-title">${title}</div>
-            <div class="fav-sub">${artist}</div>
-            <div class="fav-rating">${'★'.repeat(rating)}</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>` : ''}
 
     <div class="stat-card full">
       <div class="stat-label">genre breakdown</div>
@@ -1202,6 +1205,25 @@ function renderVinylStats() {
           </div>`).join('')}
       </div>
     </div>
+
+    ${favorites.length > 0 ? `
+    <div class="stat-card full">
+      <div class="stat-label">favorites <span style="opacity:0.45;font-size:10px;margin-left:6px">rated 7 or above · ${favorites.length} records</span></div>
+      <div class="fav-grid">
+        ${favorites.map(item => {
+          const title = item.title || item.filename?.replace('.md','') || '—';
+          const artist = Array.isArray(item.artist) ? item.artist[0]?.replace(/\[\[|\]\]/g,'') : (item.artist || '—');
+          const cover = item._cover || '';
+          const rating = parseRating(item.rating);
+          return `<div class="fav-card">
+            ${cover ? `<img class="fav-cover" src="${cover}" alt="" loading="lazy">` : `<div class="fav-cover fav-cover-placeholder">♪</div>`}
+            <div class="fav-title">${title}</div>
+            <div class="fav-sub">${artist}</div>
+            <div class="fav-rating">${'★'.repeat(rating)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
   </div>`;
 }
 
@@ -1231,12 +1253,12 @@ function renderBookStats() {
 
   // Totals
   const read = c.filter(i => i.status === 'Read').length;
-  const rated = c.filter(i => i.rating && parseInt(i.rating) > 0);
-  const avgRating = rated.length ? (rated.reduce((s,i)=>s+parseInt(i.rating),0)/rated.length).toFixed(1) : '—';
+  const rated = c.filter(i => i.rating && parseRating(i.rating) > 0);
+  const avgRating = rated.length ? (rated.reduce((s,i)=>s+parseRating(i.rating),0)/rated.length).toFixed(1) : '—';
 
   // Favorites (rating = 5)
   const favorites = c
-    .filter(item => item.rating && parseInt(item.rating) === 5)
+    .filter(item => item.rating && parseRating(item.rating) === 5)
     .sort((a,b) => (a.title||'').localeCompare(b.title||''));
 
   return `
@@ -1251,24 +1273,6 @@ function renderBookStats() {
       <div class="stat-number">${avgRating}</div>
       <div class="stat-sublabel">${rated.length} rated</div>
     </div>
-
-    ${favorites.length > 0 ? `
-    <div class="stat-card full">
-      <div class="stat-label">favorites <span style="opacity:0.45;font-size:10px;margin-left:6px">rated 5 stars · ${favorites.length} books</span></div>
-      <div class="fav-grid">
-        ${favorites.map(item => {
-          const title = item.title || item.filename?.replace('.md','') || '—';
-          const author = Array.isArray(item.author) ? item.author[0]?.replace(/\[\[|\]\]/g,'') : (item.author || '—');
-          const cover = item._cover || '';
-          return `<div class="fav-card">
-            ${cover ? `<img class="fav-cover" src="${cover}" alt="" loading="lazy">` : `<div class="fav-cover fav-cover-placeholder">☰</div>`}
-            <div class="fav-title">${title}</div>
-            <div class="fav-sub">${author}</div>
-            <div class="fav-rating">★★★★★</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>` : ''}
 
     <div class="stat-card full">
       <div class="stat-label">books read per year</div>
@@ -1295,6 +1299,24 @@ function renderBookStats() {
           </div>`).join('')}
       </div>
     </div>
+
+    ${favorites.length > 0 ? `
+    <div class="stat-card full">
+      <div class="stat-label">favorites <span style="opacity:0.45;font-size:10px;margin-left:6px">rated 5 stars · ${favorites.length} books</span></div>
+      <div class="fav-grid">
+        ${favorites.map(item => {
+          const title = item.title || item.filename?.replace('.md','') || '—';
+          const author = Array.isArray(item.author) ? item.author[0]?.replace(/\[\[|\]\]/g,'') : (item.author || '—');
+          const cover = item._cover || '';
+          return `<div class="fav-card">
+            ${cover ? `<img class="fav-cover" src="${cover}" alt="" loading="lazy">` : `<div class="fav-cover fav-cover-placeholder">☰</div>`}
+            <div class="fav-title">${title}</div>
+            <div class="fav-sub">${author}</div>
+            <div class="fav-rating">★★★★★</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
   </div>`;
 }
 
