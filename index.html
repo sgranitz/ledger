@@ -577,7 +577,7 @@ body {
   </div>
 
   <div class="browse-controls">
-    <input class="browse-search" id="browseSearch" type="text" placeholder="search..." oninput="filterCollection()">
+    <input class="browse-search" id="browseSearch" type="text" placeholder="search..." oninput="debouncedSearch()">
     <select class="browse-filter" id="browseFilter" onchange="filterCollection()">
       <option value="">all</option>
     </select>
@@ -645,9 +645,9 @@ async function connectVault() {
   try {
     vaultHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
     updateVaultUI();
-    showToast('vault connected', 'success');
+    showToast('vault connected — building index...', 'success');
     await loadCollections();
-    // refresh whichever panel is currently showing
+    showToast(`indexed ${vinylIndex.length} records · ${booksIndex.length} books`, 'success');
     const activeNav = document.querySelector('.nav-btn.active')?.id;
     if (activeNav === 'navBrowse') renderBrowse();
     if (activeNav === 'navStats') renderStats();
@@ -694,58 +694,81 @@ async function writeFile(folderHandle, filename, content) {
 }
 
 // ════════════════════════════════════════════
-// COLLECTION LOADING (parse .md frontmatter)
+// COLLECTION — search-driven, no upfront indexing
 // ════════════════════════════════════════════
+let vinylDirHandle = null;
+let booksDirHandle = null;
+let searchDebounce = null;
+
+// Filename-only indexes built on connect (no file reads, fast)
+// Maps artist/author name (lowercase) → Set of album/book filenames that belong to them
+// Built by reading frontmatter of each vinyl/book file once per session... 
+// Actually: we use the Wikilinks in the filename index approach:
+// vinyl files are named after albums. Musicians/ stubs are named after artists.
+// We build: artistName → [album filenames] by reading each vinyl file's artist field.
+// But that's slow. Instead: store handle maps and search both title AND content lazily.
+
+// Simple approach: index is just { name (display), filename } for quick filename match
+// For artist search, we read the file only if filename doesn't match but we need content match
+// → On connect, build a lightweight map: album filename → artist name string
+//   by reading ONLY the artist: line from each file (first ~5 lines, not full parse)
+let vinylIndex = []; // [{ filename, artist }]
+let booksIndex = []; // [{ filename, author }]
+
 async function loadCollections() {
   if (!vaultHandle) return;
-  // Show loading state in browse grid
-  document.getElementById('collectionGrid').innerHTML = '<div class="browse-empty"><span class="spinner"></span> loading collection...</div>';
   try {
     const refs = await vaultHandle.getDirectoryHandle('References', { create: false });
+    try { vinylDirHandle = await refs.getDirectoryHandle('Vinyl', { create: false }); } catch(e) { vinylDirHandle = null; }
+    try { booksDirHandle = await refs.getDirectoryHandle('Books', { create: false }); } catch(e) { booksDirHandle = null; }
 
-    // Load vinyl
-    try {
-      const vinylDir = await refs.getDirectoryHandle('Vinyl', { create: false });
-      vinylCollection = await readMdFiles(vinylDir);
-    } catch(e) { vinylCollection = []; }
+    // Build lightweight index: read only first ~300 chars of each file to get artist/author
+    vinylIndex = await buildIndex(vinylDirHandle, 'artist');
+    booksIndex = await buildIndex(booksDirHandle, 'author');
 
-    // Load books
-    try {
-      const booksDir = await refs.getDirectoryHandle('Books', { create: false });
-      booksCollection = await readMdFiles(booksDir);
-    } catch(e) { booksCollection = []; }
-
+    vinylCollection = [];
+    booksCollection = [];
     renderBrowse();
     renderStats();
-  } catch(e) { /* References folder doesn't exist yet */ }
+  } catch(e) { /* no References folder yet */ }
 }
 
-async function readMdFiles(dirHandle) {
-  const items = [];
-  const handles = [];
+async function buildIndex(dirHandle, field) {
+  if (!dirHandle) return [];
+  const index = [];
+  const MAX_BYTES = 400; // only read start of file for artist/author field
 
-  // First pass: collect all file handles (fast)
+  const handles = [];
   for await (const [name, handle] of dirHandle.entries()) {
-    if (handle.kind !== 'file' || !name.endsWith('.md')) continue;
-    handles.push({ name, handle });
+    if (handle.kind === 'file' && name.endsWith('.md')) handles.push({ name, handle });
   }
 
-  // Second pass: read all files in parallel batches of 50
-  const BATCH = 50;
+  // Read just the first 400 bytes of each file in parallel batches
+  const BATCH = 80;
   for (let i = 0; i < handles.length; i += BATCH) {
     const batch = handles.slice(i, i + BATCH);
     const results = await Promise.all(batch.map(async ({ name, handle }) => {
       try {
         const file = await handle.getFile();
-        const text = await file.text();
-        const fm = parseFrontmatter(text);
-        return fm ? { filename: name, ...fm } : null;
-      } catch(e) { return null; }
+        const slice = file.slice(0, MAX_BYTES);
+        const text = await slice.text();
+        const fieldVal = extractField(text, field);
+        return { filename: name, [field]: (fieldVal || '').toLowerCase() };
+      } catch(e) { return { filename: name, [field]: '' }; }
     }));
-    results.forEach(r => r && items.push(r));
+    results.forEach(r => index.push(r));
   }
+  return index;
+}
 
-  return items;
+// Extract a single YAML field value from partial file text (handles wikilinks like [[Name]])
+function extractField(text, field) {
+  text = text.replace(/\r\n/g, '\n');
+  const re = new RegExp(`^${field}:\\s*(.+)$`, 'm');
+  const m = text.match(re);
+  if (!m) return '';
+  // Handle wikilink arrays like: ["[[Artist Name]]"] or [[Artist Name]]
+  return m[1].replace(/\[\[|\]\]|"|'/g, '').trim();
 }
 
 function parseFrontmatter(text) {
@@ -836,63 +859,88 @@ function switchStatsTab(tab) {
 // BROWSE
 // ════════════════════════════════════════════
 function renderBrowse() {
-  const collection = currentBrowseType === 'vinyl' ? vinylCollection : booksCollection;
-  const filterEl = document.getElementById('browseFilter');
-
-  // Rebuild filter options
-  const filterKey = currentBrowseType === 'vinyl' ? 'genre' : 'status';
-  const allValues = new Set();
-  collection.forEach(item => {
-    const val = item[filterKey];
-    if (Array.isArray(val)) val.forEach(v => v && allValues.add(v));
-    else if (val) allValues.add(val);
-  });
-  filterEl.innerHTML = '<option value="">all</option>' +
-    [...allValues].sort().map(v => `<option value="${v}">${v}</option>`).join('');
-
+  // Just trigger a search with current query
   filterCollection();
 }
 
-function filterCollection() {
-  const q = document.getElementById('browseSearch').value.toLowerCase();
-  const f = document.getElementById('browseFilter').value;
-  const collection = currentBrowseType === 'vinyl' ? vinylCollection : booksCollection;
-  const filterKey = currentBrowseType === 'vinyl' ? 'genre' : 'status';
+function debouncedSearch() {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => filterCollection(), 300);
+}
 
-  const filtered = collection.filter(item => {
-    const title = (item.title || item.filename || '').toLowerCase();
-    const artist = Array.isArray(item.artist) ? item.artist.join(' ').toLowerCase() : (item.artist || item.author || '').toLowerCase();
-    const authorArr = Array.isArray(item.author) ? item.author.join(' ').toLowerCase() : (item.author || '').toLowerCase();
-    const matchQ = !q || title.includes(q) || artist.includes(q) || authorArr.includes(q);
-
-    const itemFilter = item[filterKey];
-    const filterVals = Array.isArray(itemFilter) ? itemFilter : (itemFilter ? [itemFilter] : []);
-    const matchF = !f || filterVals.includes(f);
-
-    return matchQ && matchF;
-  });
-
+async function filterCollection() {
+  const q = document.getElementById('browseSearch').value.trim();
   const grid = document.getElementById('collectionGrid');
   const countEl = document.getElementById('browseCount');
-
-  countEl.textContent = `${filtered.length} of ${collection.length} ${currentBrowseType === 'vinyl' ? 'records' : 'books'}`;
+  const isVinyl = currentBrowseType === 'vinyl';
+  const dirHandle = isVinyl ? vinylDirHandle : booksDirHandle;
+  const label = isVinyl ? 'records' : 'books';
 
   if (!vaultHandle) {
+    countEl.textContent = '';
     grid.innerHTML = `<div class="browse-empty">
       <div style="margin-bottom:12px">connect your vault to browse</div>
-      <button class="btn-sm" onclick="connectVault().then(()=>renderBrowse())" style="font-size:11px;padding:7px 14px">connect vault</button>
+      <button class="btn-sm" onclick="connectVault()" style="font-size:11px;padding:7px 14px">connect vault</button>
     </div>`;
     return;
   }
-  if (filtered.length === 0) {
-    grid.innerHTML = '<div class="browse-empty">no results</div>';
+
+  if (!dirHandle) {
+    countEl.textContent = '';
+    grid.innerHTML = `<div class="browse-empty">no ${label} folder found in vault</div>`;
     return;
   }
 
-  grid.innerHTML = filtered.map(item => {
-    if (currentBrowseType === 'vinyl') return renderVinylCard(item);
-    return renderBookCard(item);
-  }).join('');
+  if (!q) {
+    countEl.textContent = '';
+    grid.innerHTML = `<div class="browse-empty" style="opacity:0.5">type to search your collection</div>`;
+    return;
+  }
+
+  // Show searching state
+  grid.innerHTML = `<div class="browse-empty"><span class="spinner"></span> searching...</div>`;
+  countEl.textContent = '';
+
+  try {
+    const qLow = q.toLowerCase();
+    const MAX = 48;
+
+    const index = isVinyl ? vinylIndex : booksIndex;
+    const field = isVinyl ? 'artist' : 'author';
+
+    // Match filenames (album/book title) OR artist/author from index
+    const matched = index
+      .filter(entry => {
+        const titleMatch = entry.filename.toLowerCase().replace('.md','').includes(qLow);
+        const artistMatch = entry[field] && entry[field].includes(qLow);
+        return titleMatch || artistMatch;
+      })
+      .slice(0, MAX);
+
+    if (matched.length === 0) {
+      countEl.textContent = '0 results';
+      grid.innerHTML = `<div class="browse-empty">no results for "${q}"</div>`;
+      return;
+    }
+
+    // Read matched files in parallel
+    const results = await Promise.all(matched.map(async ({ filename }) => {
+      try {
+        const handle = await dirHandle.getFileHandle(filename);
+        const file = await handle.getFile();
+        const text = await file.text();
+        const fm = parseFrontmatter(text);
+        return fm ? { filename, ...fm } : null;
+      } catch(e) { return null; }
+    }));
+
+    const items = results.filter(Boolean);
+    countEl.textContent = `${items.length} result${items.length !== 1 ? 's' : ''}`;
+    grid.innerHTML = items.map(item => isVinyl ? renderVinylCard(item) : renderBookCard(item)).join('');
+
+  } catch(e) {
+    grid.innerHTML = `<div class="browse-empty">error reading collection</div>`;
+  }
 }
 
 function renderVinylCard(item) {
