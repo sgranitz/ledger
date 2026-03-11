@@ -626,6 +626,7 @@ let currentAddTab = 'vinyl';
 // INIT
 // ════════════════════════════════════════════
 renderRecent();
+updateVaultUI(); // always reset to disconnected state on load
 
 document.getElementById('btnConnect').addEventListener('click', connectVault);
 document.addEventListener('keydown', e => {
@@ -646,6 +647,10 @@ async function connectVault() {
     updateVaultUI();
     showToast('vault connected', 'success');
     await loadCollections();
+    // refresh whichever panel is currently showing
+    const activeNav = document.querySelector('.nav-btn.active')?.id;
+    if (activeNav === 'navBrowse') renderBrowse();
+    if (activeNav === 'navStats') renderStats();
   } catch(e) {
     if (e.name !== 'AbortError') showToast('could not connect vault', 'error');
   }
@@ -855,7 +860,10 @@ function filterCollection() {
   countEl.textContent = `${filtered.length} of ${collection.length} ${currentBrowseType === 'vinyl' ? 'records' : 'books'}`;
 
   if (!vaultHandle) {
-    grid.innerHTML = '<div class="browse-empty">connect your vault to browse</div>';
+    grid.innerHTML = `<div class="browse-empty">
+      <div style="margin-bottom:12px">connect your vault to browse</div>
+      <button class="btn-sm" onclick="connectVault().then(()=>renderBrowse())" style="font-size:11px;padding:7px 14px">connect vault</button>
+    </div>`;
     return;
   }
   if (filtered.length === 0) {
