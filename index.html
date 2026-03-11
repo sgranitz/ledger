@@ -1194,6 +1194,11 @@ function renderVinylStats() {
       <div class="stat-number">${blackCount}</div>
       <div class="stat-sublabel">${Math.round(blackCount/c.length*100)}% of collection</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-label">colored vinyl</div>
+      <div class="stat-number">${c.length - blackCount}</div>
+      <div class="stat-sublabel">${Math.round((c.length - blackCount)/c.length*100)}% of collection</div>
+    </div>
 
     <div class="stat-card full">
       <div class="stat-label">colored vinyl <span style="opacity:0.45;font-size:10px;margin-left:6px">excluding black</span></div>
