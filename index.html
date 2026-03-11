@@ -861,7 +861,7 @@ function parseFrontmatter(text) {
   let inList = false;
 
   for (const line of lines) {
-    const listMatch = line.match(/^  - "?(.+?)"?$/);
+    const listMatch = line.match(/^  - (.+)$/);
     const keyMatch = line.match(/^(\w+):\s*(.*)$/);
 
     if (listMatch && inList) {
