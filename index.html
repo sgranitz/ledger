@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>the ledger</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #1a1612;
+  --bg2:       #221e19;
+  --card:      #2a2420;
+  --card2:     #322c26;
+  --border:    #3d3630;
+  --border2:   #4a433b;
+  --amber:     #c8a96e;
+  --amber-dim: #9a7e4f;
+  --amber-bg:  rgba(200,169,110,0.08);
+  --cream:     #e8dcc8;
+  --muted:     #8a7e6e;
+  --faint:     #5a5040;
+  --red:       #c87060;
+  --blue:      #6090b0;
+  --green:     #70a880;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--cream);
+  font-family: 'DM Mono', monospace;
+  min-height: 100vh;
+  padding: 24px 16px 60px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+/* ── HEADER ── */
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.wordmark {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 400;
+  color: var(--cream);
+  letter-spacing: -0.02em;
+}
+.wordmark em { font-style: italic; color: var(--amber); }
+
+.vault-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--faint);
+  transition: background 0.3s;
+}
+.status-dot.connected { background: var(--green); }
+
+.btn-sm {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-sm:hover { border-color: var(--amber); color: var(--amber); }
+
+/* ── MAIN NAV ── */
+.main-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 20px;
+}
+
+.nav-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.nav-btn.active {
+  background: var(--card2);
+  color: var(--cream);
+  border: 1px solid var(--border2);
+}
+
+/* ── SUB TABS ── */
+.sub-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px;
+  margin-bottom: 18px;
+}
+
+.sub-tab {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.sub-tab.active {
+  background: var(--card);
+  color: var(--cream);
+  border: 1px solid var(--border);
+}
+
+/* ── VAULT BANNER ── */
+.vault-banner {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+.vault-name { color: var(--amber); font-size: 11px; }
+
+/* ── SECTION CARD ── */
+.section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.section-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+
+/* ── INPUTS ── */
+.field { margin-bottom: 14px; }
+
+.field label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px dashed var(--border2);
+  border-radius: 5px;
+  color: var(--cream);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus { border-color: var(--amber); border-style: solid; }
+.field select option { background: var(--card2); }
+.field textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ── SEARCH BTN ── */
+.btn-search {
+  width: 100%;
+  background: transparent;
+  border: 1px dashed var(--border2);
+  border-radius: 6px;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+.btn-search:hover:not(:disabled) { border-color: var(--amber); color: var(--amber); border-style: solid; }
+.btn-search:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── RESULTS GRID ── */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.result-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.result-card:hover { border-color: var(--amber-dim); transform: translateY(-1px); }
+.result-card.selected { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+
+.result-cover {
+  width: 100%; aspect-ratio: 1;
+  object-fit: cover; display: block;
+  background: var(--card2);
+}
+.result-cover-placeholder {
+  width: 100%; aspect-ratio: 1;
+  background: var(--card2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; color: var(--faint);
+}
+.result-info { padding: 8px; }
+.result-title {
+  font-size: 10px; color: var(--cream); line-height: 1.3; margin-bottom: 3px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.result-sub { font-size: 9px; color: var(--muted); }
+
+/* ── CONFIRM ── */
+.confirm-section {
+  background: var(--card);
+  border: 1px solid var(--amber-dim);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.confirm-header {
+  display: flex; gap: 14px; align-items: flex-start;
+  margin-bottom: 18px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.confirm-cover {
+  width: 72px; height: 72px; object-fit: cover;
+  border-radius: 4px; background: var(--card2); flex-shrink: 0;
+}
+.confirm-cover-placeholder {
+  width: 72px; height: 72px; background: var(--card2);
+  border-radius: 4px; display: flex; align-items: center;
+  justify-content: center; font-size: 28px; flex-shrink: 0;
+}
+.confirm-meta { flex: 1; min-width: 0; }
+.confirm-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px; color: var(--cream); margin-bottom: 4px; line-height: 1.3;
+}
+.confirm-sub { font-size: 11px; color: var(--muted); }
+.confirm-tag {
+  display: inline-block;
+  background: var(--amber-bg); border: 1px solid var(--amber-dim);
+  color: var(--amber); font-size: 9px; letter-spacing: 0.08em;
+  text-transform: uppercase; padding: 2px 7px; border-radius: 3px; margin-top: 6px;
+}
+
+/* ── STARS ── */
+.rating-row { display: flex; gap: 6px; align-items: center; }
+.star { font-size: 18px; cursor: pointer; color: var(--faint); transition: color 0.15s; user-select: none; }
+.star.lit { color: var(--amber); }
+
+/* ── SAVE BTN ── */
+.btn-save {
+  width: 100%; background: var(--amber); border: none;
+  border-radius: 7px; color: #1a1612;
+  font-family: 'DM Mono', monospace; font-size: 12px;
+  font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 16px; cursor: pointer; transition: all 0.2s; margin-top: 4px;
+}
+.btn-save:hover:not(:disabled) { background: #d4b87e; }
+.btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  width: 100%; background: transparent;
+  border: 1px solid var(--border2); border-radius: 7px;
+  color: var(--muted); font-family: 'DM Mono', monospace;
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 13px; cursor: pointer; transition: all 0.2s; margin-top: 8px;
+}
+.btn-secondary:hover { color: var(--cream); }
+
+/* ── BROWSE ── */
+.browse-controls {
+  display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+}
+
+.browse-search {
+  flex: 1; min-width: 180px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--cream);
+  font-family: 'DM Mono', monospace; font-size: 12px;
+  padding: 9px 12px; outline: none;
+}
+.browse-search:focus { border-color: var(--amber); }
+
+.browse-filter {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--muted);
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  letter-spacing: 0.06em; padding: 9px 12px; cursor: pointer; outline: none;
+}
+.browse-filter option { background: var(--card2); }
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.coll-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s;
+  cursor: default;
+}
+.coll-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+
+.coll-cover {
+  width: 100%; aspect-ratio: 1;
+  object-fit: cover; display: block; background: var(--card2);
+}
+.coll-cover-placeholder {
+  width: 100%; aspect-ratio: 1;
+  background: var(--card2); display: flex;
+  align-items: center; justify-content: center;
+  font-size: 32px; color: var(--faint);
+}
+.coll-info { padding: 10px; }
+.coll-title {
+  font-size: 11px; color: var(--cream); line-height: 1.3;
+  margin-bottom: 4px; font-weight: 500;
+  display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+.coll-sub { font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+.coll-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.coll-tag {
+  font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 2px 5px; border-radius: 2px; border: 1px solid var(--border2);
+  color: var(--faint);
+}
+.coll-tag.amber { border-color: var(--amber-dim); color: var(--amber-dim); }
+
+.browse-empty {
+  grid-column: 1/-1; text-align: center;
+  padding: 48px 0; color: var(--faint);
+  font-size: 11px; letter-spacing: 0.08em;
+}
+
+.browse-count {
+  font-size: 10px; color: var(--faint);
+  letter-spacing: 0.08em; margin-bottom: 14px;
+  text-transform: uppercase;
+}
+
+/* ── STATS ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px;
+}
+.stat-card.full { grid-column: 1 / -1; }
+
+.stat-label {
+  font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 16px;
+}
+
+.stat-number {
+  font-family: 'Playfair Display', serif;
+  font-size: 36px; color: var(--amber); line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-sublabel { font-size: 10px; color: var(--faint); letter-spacing: 0.06em; }
+
+/* Bar chart */
+.bar-chart { display: flex; flex-direction: column; gap: 8px; }
+.bar-row { display: flex; align-items: center; gap: 8px; }
+.bar-label { font-size: 10px; color: var(--muted); width: 110px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-track { flex: 1; height: 6px; background: var(--bg2); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--amber); border-radius: 3px; transition: width 0.6s ease; }
+.bar-fill.blue { background: var(--blue); }
+.bar-fill.green { background: var(--green); }
+.bar-count { font-size: 10px; color: var(--faint); width: 24px; text-align: right; flex-shrink: 0; }
+
+/* Donut chart */
+.donut-wrap {
+  display: flex; align-items: center; gap: 20px;
+}
+.donut-legend { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.legend-item { display: flex; align-items: center; gap: 7px; font-size: 10px; color: var(--muted); }
+.legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+/* ── LOADING / TOAST ── */
+.spinner {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid var(--border2); border-top-color: var(--amber);
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+  margin-right: 8px; vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-row {
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; color: var(--muted); font-size: 11px; letter-spacing: 0.08em;
+}
+
+.hint { text-align: center; color: var(--faint); font-size: 11px; letter-spacing: 0.06em; padding: 20px 0 4px; }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--card2); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 12px 20px;
+  font-size: 11px; letter-spacing: 0.06em; color: var(--cream);
+  transition: transform 0.3s ease; z-index: 100; white-space: nowrap;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.success { border-color: var(--green); color: var(--green); }
+.toast.error { border-color: var(--red); color: var(--red); }
+
+/* ── RECENT ── */
+.recent-label {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--faint); margin-bottom: 12px; margin-top: 8px;
+}
+.recent-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.recent-item:last-child { border-bottom: none; }
+.recent-cover { width: 36px; height: 36px; border-radius: 3px; object-fit: cover; background: var(--card2); flex-shrink: 0; }
+.recent-title { font-size: 12px; color: var(--cream); }
+.recent-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.badge {
+  margin-left: auto; font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted); background: var(--bg2); border: 1px solid var(--border);
+  padding: 2px 6px; border-radius: 3px; flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="wordmark">the <em>ledger</em></div>
+  <div class="vault-status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">no vault</span>
+    <button class="btn-sm" id="btnConnect">connect</button>
+  </div>
+</header>
+
+<!-- MAIN NAV -->
+<nav class="main-nav">
+  <button class="nav-btn active" id="navAdd" onclick="switchNav('add')">add</button>
+  <button class="nav-btn" id="navBrowse" onclick="switchNav('browse')">browse</button>
+  <button class="nav-btn" id="navStats" onclick="switchNav('stats')">stats</button>
+</nav>
+
+<!-- VAULT BANNER -->
+<div class="vault-banner" id="vaultBanner" style="display:none">
+  <span style="color:var(--muted);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;">vault</span>
+  <span class="vault-name" id="vaultName">—</span>
+  <button class="btn-sm" onclick="disconnectVault()">change</button>
+</div>
+
+<!-- ════════════════ ADD PANEL ════════════════ -->
+<div id="panelAdd">
+  <div class="sub-tabs">
+    <button class="sub-tab active" id="addTabVinyl" onclick="switchAddTab('vinyl')">⬤ vinyl</button>
+    <button class="sub-tab" id="addTabBooks" onclick="switchAddTab('books')">⬤ books</button>
+  </div>
+
+  <!-- VINYL ADD -->
+  <div id="addVinyl">
+    <div class="section">
+      <div class="section-label">search discogs</div>
+      <div class="field"><label>Artist</label><input type="text" id="vArtist" placeholder="e.g. Kendrick Lamar" /></div>
+      <div class="field"><label>Album Title</label><input type="text" id="vTitle" placeholder="e.g. GNX" /></div>
+      <div class="field"><label>Vinyl Color</label><input type="text" id="vColor" placeholder="e.g. Black, Translucent Green" /></div>
+      <button class="btn-search" id="vSearchBtn" onclick="searchVinyl()">+ search discogs</button>
+    </div>
+    <div id="vResults"></div>
+    <div id="vConfirm"></div>
+  </div>
+
+  <!-- BOOKS ADD -->
+  <div id="addBooks" style="display:none">
+    <div class="section">
+      <div class="section-label">search open library</div>
+      <div class="field"><label>Author</label><input type="text" id="bAuthor" placeholder="e.g. Cormac McCarthy" /></div>
+      <div class="field"><label>Title</label><input type="text" id="bTitle" placeholder="e.g. Blood Meridian" /></div>
+      <button class="btn-search" id="bSearchBtn" onclick="searchBooks()">+ search open library</button>
+    </div>
+    <div id="bResults"></div>
+    <div id="bConfirm"></div>
+  </div>
+
+  <!-- RECENT -->
+  <div id="recentSection" style="display:none">
+    <div class="recent-label">recent entries</div>
+    <div id="recentList"></div>
+  </div>
+</div>
+
+<!-- ════════════════ BROWSE PANEL ════════════════ -->
+<div id="panelBrowse" style="display:none">
+  <div class="sub-tabs">
+    <button class="sub-tab active" id="browseTabVinyl" onclick="switchBrowseTab('vinyl')">⬤ vinyl</button>
+    <button class="sub-tab" id="browseTabBooks" onclick="switchBrowseTab('books')">⬤ books</button>
+  </div>
+
+  <div class="browse-controls">
+    <input class="browse-search" id="browseSearch" type="text" placeholder="search..." oninput="filterCollection()">
+    <select class="browse-filter" id="browseFilter" onchange="filterCollection()">
+      <option value="">all</option>
+    </select>
+  </div>
+
+  <div class="browse-count" id="browseCount"></div>
+  <div class="collection-grid" id="collectionGrid">
+    <div class="browse-empty">connect your vault to browse</div>
+  </div>
+</div>
+
+<!-- ════════════════ STATS PANEL ════════════════ -->
+<div id="panelStats" style="display:none">
+  <div class="sub-tabs">
+    <button class="sub-tab active" id="statsTabVinyl" onclick="switchStatsTab('vinyl')">⬤ vinyl</button>
+    <button class="sub-tab" id="statsTabBooks" onclick="switchStatsTab('books')">⬤ books</button>
+  </div>
+  <div id="statsContent">
+    <div class="stat-card"><div class="loading-row">connect your vault to see stats</div></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+const DISCOGS_TOKEN = 'jQZNIsPjJlcRZeemYAWWIXEDIidYNIbvjrpbJhsw';
+let vaultHandle = null;
+let selectedVinyl = null;
+let selectedBook = null;
+let vinylRating = 0;
+let bookRating = 0;
+let recentEntries = JSON.parse(localStorage.getItem('ledger_recent') || '[]');
+
+// Collection caches
+let vinylCollection = [];
+let booksCollection = [];
+let currentBrowseType = 'vinyl';
+let currentStatsType = 'vinyl';
+let currentAddTab = 'vinyl';
+
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
+renderRecent();
+
+document.getElementById('btnConnect').addEventListener('click', connectVault);
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const nav = document.querySelector('.nav-btn.active')?.id;
+  if (nav === 'navAdd') {
+    if (currentAddTab === 'vinyl' && !document.getElementById('vConfirm').innerHTML) searchVinyl();
+    if (currentAddTab === 'books' && !document.getElementById('bConfirm').innerHTML) searchBooks();
+  }
+});
+
+// ════════════════════════════════════════════
+// VAULT
+// ════════════════════════════════════════════
+async function connectVault() {
+  try {
+    vaultHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    updateVaultUI();
+    showToast('vault connected', 'success');
+    await loadCollections();
+  } catch(e) {
+    if (e.name !== 'AbortError') showToast('could not connect vault', 'error');
+  }
+}
+
+function disconnectVault() {
+  vaultHandle = null;
+  vinylCollection = [];
+  booksCollection = [];
+  updateVaultUI();
+}
+
+function updateVaultUI() {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  const banner = document.getElementById('vaultBanner');
+  const btn = document.getElementById('btnConnect');
+  if (vaultHandle) {
+    dot.classList.add('connected');
+    txt.textContent = 'connected';
+    btn.style.display = 'none';
+    banner.style.display = 'flex';
+    document.getElementById('vaultName').textContent = vaultHandle.name;
+  } else {
+    dot.classList.remove('connected');
+    txt.textContent = 'no vault';
+    btn.style.display = 'inline-block';
+    banner.style.display = 'none';
+  }
+}
+
+async function getOrCreateFolder(parentHandle, name) {
+  return await parentHandle.getDirectoryHandle(name, { create: true });
+}
+
+async function writeFile(folderHandle, filename, content) {
+  const fh = await folderHandle.getFileHandle(filename, { create: true });
+  const w = await fh.createWritable();
+  await w.write(content);
+  await w.close();
+}
+
+// ════════════════════════════════════════════
+// COLLECTION LOADING (parse .md frontmatter)
+// ════════════════════════════════════════════
+async function loadCollections() {
+  if (!vaultHandle) return;
+  try {
+    const refs = await vaultHandle.getDirectoryHandle('References', { create: false });
+
+    // Load vinyl
+    try {
+      const vinylDir = await refs.getDirectoryHandle('Vinyl', { create: false });
+      vinylCollection = await readMdFiles(vinylDir);
+    } catch(e) { vinylCollection = []; }
+
+    // Load books
+    try {
+      const booksDir = await refs.getDirectoryHandle('Books', { create: false });
+      booksCollection = await readMdFiles(booksDir);
+    } catch(e) { booksCollection = []; }
+
+    renderBrowse();
+    renderStats();
+  } catch(e) { /* References folder doesn't exist yet */ }
+}
+
+async function readMdFiles(dirHandle) {
+  const items = [];
+  for await (const [name, handle] of dirHandle.entries()) {
+    if (handle.kind !== 'file' || !name.endsWith('.md')) continue;
+    try {
+      const file = await handle.getFile();
+      const text = await file.text();
+      const fm = parseFrontmatter(text);
+      if (fm) items.push({ filename: name, ...fm });
+    } catch(e) { /* skip malformed */ }
+  }
+  return items;
+}
+
+function parseFrontmatter(text) {
+  const match = text.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) return null;
+  const yaml = match[1];
+  const result = {};
+
+  // Simple YAML parser for our known fields
+  const lines = yaml.split('\n');
+  let currentKey = null;
+  let inList = false;
+
+  for (const line of lines) {
+    const listMatch = line.match(/^  - "?(.+?)"?$/);
+    const keyMatch = line.match(/^(\w+):\s*(.*)$/);
+
+    if (listMatch && inList) {
+      const val = listMatch[1].replace(/^"(.*)"$/, '$1').replace(/\[\[.*?\|(.*?)\]\]/, '$1').replace(/\[\[(.*?)\]\]/, '$1');
+      if (!result[currentKey]) result[currentKey] = [];
+      result[currentKey].push(val);
+    } else if (keyMatch) {
+      currentKey = keyMatch[1];
+      const val = keyMatch[2].trim().replace(/^"(.*)"$/, '$1').replace(/\[\[.*?\|(.*?)\]\]/, '$1').replace(/\[\[(.*?)\]\]/, '$1');
+      if (val === '' || val === 'null') {
+        result[currentKey] = null;
+        inList = true;
+      } else {
+        result[currentKey] = val;
+        inList = false;
+      }
+    }
+  }
+
+  // Extract cover image from body
+  const coverMatch = text.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
+  if (coverMatch) result._cover = coverMatch[1];
+
+  return result;
+}
+
+// ════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════
+function switchNav(nav) {
+  ['add','browse','stats'].forEach(n => {
+    document.getElementById(`panel${n.charAt(0).toUpperCase()+n.slice(1)}`).style.display = n === nav ? 'block' : 'none';
+    document.getElementById(`nav${n.charAt(0).toUpperCase()+n.slice(1)}`).classList.toggle('active', n === nav);
+  });
+  if (nav === 'browse') renderBrowse();
+  if (nav === 'stats') renderStats();
+}
+
+function switchAddTab(tab) {
+  currentAddTab = tab;
+  document.getElementById('addVinyl').style.display = tab === 'vinyl' ? 'block' : 'none';
+  document.getElementById('addBooks').style.display = tab === 'books' ? 'block' : 'none';
+  document.getElementById('addTabVinyl').classList.toggle('active', tab === 'vinyl');
+  document.getElementById('addTabBooks').classList.toggle('active', tab === 'books');
+}
+
+function switchBrowseTab(tab) {
+  currentBrowseType = tab;
+  document.getElementById('browseTabVinyl').classList.toggle('active', tab === 'vinyl');
+  document.getElementById('browseTabBooks').classList.toggle('active', tab === 'books');
+  document.getElementById('browseSearch').value = '';
+  renderBrowse();
+}
+
+function switchStatsTab(tab) {
+  currentStatsType = tab;
+  document.getElementById('statsTabVinyl').classList.toggle('active', tab === 'vinyl');
+  document.getElementById('statsTabBooks').classList.toggle('active', tab === 'books');
+  renderStats();
+}
+
+// ════════════════════════════════════════════
+// BROWSE
+// ════════════════════════════════════════════
+function renderBrowse() {
+  const collection = currentBrowseType === 'vinyl' ? vinylCollection : booksCollection;
+  const filterEl = document.getElementById('browseFilter');
+
+  // Rebuild filter options
+  const filterKey = currentBrowseType === 'vinyl' ? 'genre' : 'status';
+  const allValues = new Set();
+  collection.forEach(item => {
+    const val = item[filterKey];
+    if (Array.isArray(val)) val.forEach(v => v && allValues.add(v));
+    else if (val) allValues.add(val);
+  });
+  filterEl.innerHTML = '<option value="">all</option>' +
+    [...allValues].sort().map(v => `<option value="${v}">${v}</option>`).join('');
+
+  filterCollection();
+}
+
+function filterCollection() {
+  const q = document.getElementById('browseSearch').value.toLowerCase();
+  const f = document.getElementById('browseFilter').value;
+  const collection = currentBrowseType === 'vinyl' ? vinylCollection : booksCollection;
+  const filterKey = currentBrowseType === 'vinyl' ? 'genre' : 'status';
+
+  const filtered = collection.filter(item => {
+    const title = (item.title || item.filename || '').toLowerCase();
+    const artist = Array.isArray(item.artist) ? item.artist.join(' ').toLowerCase() : (item.artist || item.author || '').toLowerCase();
+    const authorArr = Array.isArray(item.author) ? item.author.join(' ').toLowerCase() : (item.author || '').toLowerCase();
+    const matchQ = !q || title.includes(q) || artist.includes(q) || authorArr.includes(q);
+
+    const itemFilter = item[filterKey];
+    const filterVals = Array.isArray(itemFilter) ? itemFilter : (itemFilter ? [itemFilter] : []);
+    const matchF = !f || filterVals.includes(f);
+
+    return matchQ && matchF;
+  });
+
+  const grid = document.getElementById('collectionGrid');
+  const countEl = document.getElementById('browseCount');
+
+  countEl.textContent = `${filtered.length} of ${collection.length} ${currentBrowseType === 'vinyl' ? 'records' : 'books'}`;
+
+  if (!vaultHandle) {
+    grid.innerHTML = '<div class="browse-empty">connect your vault to browse</div>';
+    return;
+  }
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div class="browse-empty">no results</div>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(item => {
+    if (currentBrowseType === 'vinyl') return renderVinylCard(item);
+    return renderBookCard(item);
+  }).join('');
+}
+
+function renderVinylCard(item) {
+  const title = item.title || item.filename?.replace('.md','') || '—';
+  const artist = Array.isArray(item.artist) ? item.artist[0] : (item.artist || '—');
+  const year = item.year || '';
+  const color = item.color || '';
+  const genres = Array.isArray(item.genre) ? item.genre.slice(0,1) : (item.genre ? [item.genre] : []);
+  const rating = item.rating ? '⭐'.repeat(parseInt(item.rating)) : '';
+  const cover = item._cover || '';
+
+  return `<div class="coll-card">
+    ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder">♪</div>`}
+    <div class="coll-info">
+      <div class="coll-title">${title}</div>
+      <div class="coll-sub">${artist}${year ? ' · ' + year : ''}</div>
+      <div class="coll-tags">
+        ${color ? `<span class="coll-tag">${color}</span>` : ''}
+        ${genres.map(g => `<span class="coll-tag amber">${g}</span>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderBookCard(item) {
+  const title = item.title || item.filename?.replace('.md','') || '—';
+  const author = Array.isArray(item.author) ? item.author[0] : (item.author || '—');
+  const year = item.year || '';
+  const status = item.status || '';
+  const form = item.form || '';
+  const cover = item._cover || '';
+
+  const statusColor = status === 'Read' ? 'amber' : '';
+
+  return `<div class="coll-card">
+    ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder">☰</div>`}
+    <div class="coll-info">
+      <div class="coll-title">${title}</div>
+      <div class="coll-sub">${author}${year ? ' · ' + year : ''}</div>
+      <div class="coll-tags">
+        ${status ? `<span class="coll-tag ${statusColor}">${status}</span>` : ''}
+        ${form ? `<span class="coll-tag">${form}</span>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════════════
+// STATS
+// ════════════════════════════════════════════
+function renderStats() {
+  const el = document.getElementById('statsContent');
+  if (!vaultHandle) {
+    el.innerHTML = '<div class="stat-card"><div class="loading-row">connect your vault to see stats</div></div>';
+    return;
+  }
+
+  if (currentStatsType === 'vinyl') {
+    el.innerHTML = renderVinylStats();
+  } else {
+    el.innerHTML = renderBookStats();
+  }
+}
+
+function renderVinylStats() {
+  const c = vinylCollection;
+  if (c.length === 0) return '<div class="stat-card"><div class="loading-row">no vinyl found</div></div>';
+
+  // Genre breakdown
+  const genreCounts = {};
+  c.forEach(item => {
+    const genres = Array.isArray(item.genre) ? item.genre : (item.genre ? [item.genre] : []);
+    genres.forEach(g => { if(g) genreCounts[g] = (genreCounts[g]||0) + 1; });
+  });
+  const topGenres = Object.entries(genreCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxGenre = topGenres[0]?.[1] || 1;
+
+  // Color distribution
+  const colorCounts = {};
+  c.forEach(item => {
+    if (item.color) {
+      const col = item.color.trim();
+      colorCounts[col] = (colorCounts[col]||0) + 1;
+    }
+  });
+  const topColors = Object.entries(colorCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxColor = topColors[0]?.[1] || 1;
+
+  // Top artists
+  const artistCounts = {};
+  c.forEach(item => {
+    const artists = Array.isArray(item.artist) ? item.artist : (item.artist ? [item.artist] : []);
+    artists.forEach(a => { if(a) artistCounts[a] = (artistCounts[a]||0) + 1; });
+  });
+  const topArtists = Object.entries(artistCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxArtist = topArtists[0]?.[1] || 1;
+
+  // Avg rating
+  const rated = c.filter(item => item.rating && parseInt(item.rating) > 0);
+  const avgRating = rated.length ? (rated.reduce((s,i) => s + parseInt(i.rating), 0) / rated.length).toFixed(1) : '—';
+
+  return `
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">total records</div>
+      <div class="stat-number">${c.length}</div>
+      <div class="stat-sublabel">in your vault</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">avg rating</div>
+      <div class="stat-number">${avgRating}</div>
+      <div class="stat-sublabel">${rated.length} rated</div>
+    </div>
+
+    <div class="stat-card full">
+      <div class="stat-label">genre breakdown</div>
+      <div class="bar-chart">
+        ${topGenres.map(([g,n]) => `
+          <div class="bar-row">
+            <div class="bar-label">${g}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${Math.round(n/maxGenre*100)}%"></div></div>
+            <div class="bar-count">${n}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="stat-card full">
+      <div class="stat-label">vinyl color distribution</div>
+      <div class="bar-chart">
+        ${topColors.map(([col,n]) => `
+          <div class="bar-row">
+            <div class="bar-label">${col}</div>
+            <div class="bar-track"><div class="bar-fill blue" style="width:${Math.round(n/maxColor*100)}%"></div></div>
+            <div class="bar-count">${n}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="stat-card full">
+      <div class="stat-label">top artists by record count</div>
+      <div class="bar-chart">
+        ${topArtists.map(([a,n]) => `
+          <div class="bar-row">
+            <div class="bar-label">${a}</div>
+            <div class="bar-track"><div class="bar-fill green" style="width:${Math.round(n/maxArtist*100)}%"></div></div>
+            <div class="bar-count">${n}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderBookStats() {
+  const c = booksCollection;
+  if (c.length === 0) return '<div class="stat-card"><div class="loading-row">no books found</div></div>';
+
+  // Books read per year
+  const yearCounts = {};
+  c.forEach(item => {
+    if (item.status === 'Read' && item.end_date) {
+      const yr = item.end_date.slice(0,4);
+      if (yr && yr !== 'undefined') yearCounts[yr] = (yearCounts[yr]||0) + 1;
+    }
+  });
+  const years = Object.entries(yearCounts).sort((a,b)=>a[0].localeCompare(b[0]));
+  const maxYear = years[0] ? Math.max(...years.map(y=>y[1])) : 1;
+
+  // Genre breakdown
+  const genreCounts = {};
+  c.forEach(item => {
+    const genres = Array.isArray(item.genre) ? item.genre : (item.genre ? [item.genre] : []);
+    genres.forEach(g => { if(g) genreCounts[g] = (genreCounts[g]||0) + 1; });
+  });
+  const topGenres = Object.entries(genreCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxGenre = topGenres[0]?.[1] || 1;
+
+  // Totals
+  const read = c.filter(i => i.status === 'Read').length;
+  const rated = c.filter(i => i.rating && parseInt(i.rating) > 0);
+  const avgRating = rated.length ? (rated.reduce((s,i)=>s+parseInt(i.rating),0)/rated.length).toFixed(1) : '—';
+
+  return `
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">total books</div>
+      <div class="stat-number">${c.length}</div>
+      <div class="stat-sublabel">${read} read</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">avg rating</div>
+      <div class="stat-number">${avgRating}</div>
+      <div class="stat-sublabel">${rated.length} rated</div>
+    </div>
+
+    <div class="stat-card full">
+      <div class="stat-label">books read per year</div>
+      ${years.length === 0
+        ? '<div style="color:var(--faint);font-size:11px;">no finished books with dates found</div>'
+        : `<div class="bar-chart">
+          ${years.map(([yr,n]) => `
+            <div class="bar-row">
+              <div class="bar-label">${yr}</div>
+              <div class="bar-track"><div class="bar-fill" style="width:${Math.round(n/maxYear*100)}%"></div></div>
+              <div class="bar-count">${n}</div>
+            </div>`).join('')}
+          </div>`}
+    </div>
+
+    <div class="stat-card full">
+      <div class="stat-label">genre breakdown</div>
+      <div class="bar-chart">
+        ${topGenres.map(([g,n]) => `
+          <div class="bar-row">
+            <div class="bar-label">${g}</div>
+            <div class="bar-track"><div class="bar-fill green" style="width:${Math.round(n/maxGenre*100)}%"></div></div>
+            <div class="bar-count">${n}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════════════
+// VINYL ADD
+// ════════════════════════════════════════════
+async function searchVinyl() {
+  const artist = document.getElementById('vArtist').value.trim();
+  const title = document.getElementById('vTitle').value.trim();
+  if (!artist || !title) { showToast('enter artist and title', 'error'); return; }
+
+  const btn = document.getElementById('vSearchBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>searching...';
+  document.getElementById('vResults').innerHTML = '';
+  document.getElementById('vConfirm').innerHTML = '';
+  selectedVinyl = null;
+
+  try {
+    const url = `https://api.discogs.com/database/search?release_title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&type=release&format=vinyl&token=${DISCOGS_TOKEN}&per_page=6`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.results || data.results.length === 0) {
+      document.getElementById('vResults').innerHTML = '<p class="hint">no results — try adjusting the search</p>';
+    } else {
+      renderVinylResults(data.results.slice(0, 6));
+    }
+  } catch(e) { showToast('discogs search failed', 'error'); }
+
+  btn.disabled = false;
+  btn.textContent = '+ search discogs';
+}
+
+function renderVinylResults(results) {
+  window._vinylResults = results;
+  document.getElementById('vResults').innerHTML = `
+    <div class="section">
+      <div class="section-label">select release</div>
+      <div class="results-grid">
+        ${results.map((r, i) => {
+          const parts = r.title.split(' - ');
+          const albumTitle = parts.length > 1 ? parts.slice(1).join(' - ') : parts[0];
+          const cover = r.cover_image && !r.cover_image.includes('spacer') ? r.cover_image : null;
+          return `<div class="result-card" onclick="selectVinyl(${i})" id="vr-${i}">
+            ${cover ? `<img class="result-cover" src="${cover}" alt="" loading="lazy">` : `<div class="result-cover-placeholder">♪</div>`}
+            <div class="result-info">
+              <div class="result-title">${albumTitle}</div>
+              <div class="result-sub">${r.year || '—'}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+async function selectVinyl(index) {
+  document.querySelectorAll('[id^="vr-"]').forEach(el => el.classList.remove('selected'));
+  document.getElementById(`vr-${index}`).classList.add('selected');
+  const result = window._vinylResults[index];
+  document.getElementById('vConfirm').innerHTML = '<div class="loading-row"><span class="spinner"></span>loading release data...</div>';
+  try {
+    const res = await fetch(`https://api.discogs.com/releases/${result.id}?token=${DISCOGS_TOKEN}`);
+    const data = await res.json();
+    selectedVinyl = data;
+    renderVinylConfirm(data);
+  } catch(e) {
+    selectedVinyl = { _fallback: true, _result: result };
+    renderVinylConfirm(null, result);
+  }
+}
+
+function renderVinylConfirm(data, fallback) {
+  const title = data ? data.title : (fallback ? fallback.title.split(' - ').slice(1).join(' - ') : '');
+  const artists = data?.artists ? data.artists.map(a => a.name.replace(/\s\(\d+\)$/, '')).join(', ') : document.getElementById('vArtist').value;
+  const year = data?.year || fallback?.year || '—';
+  const cover = data?.images?.[0]?.uri || fallback?.cover_image || '';
+  const genres = data?.genres?.join(', ') || '';
+  const color = document.getElementById('vColor').value.trim();
+  vinylRating = 0;
+
+  document.getElementById('vConfirm').innerHTML = `
+    <div class="confirm-section">
+      <div class="section-label">confirm & save</div>
+      <div class="confirm-header">
+        ${cover && !cover.includes('spacer') ? `<img class="confirm-cover" src="${cover}" alt="">` : `<div class="confirm-cover-placeholder">♪</div>`}
+        <div class="confirm-meta">
+          <div class="confirm-title">${title}</div>
+          <div class="confirm-sub">${artists} · ${year}</div>
+          ${genres ? `<span class="confirm-tag">${genres}</span>` : ''}
+        </div>
+      </div>
+      <div class="field">
+        <label>Vinyl Color</label>
+        <input type="text" id="vColorFinal" value="${color}" placeholder="e.g. Black" />
+      </div>
+      <div class="field">
+        <label>Rating</label>
+        <div class="rating-row" id="vStars">
+          ${[1,2,3,4,5].map(n => `<span class="star" onclick="setVinylRating(${n})">★</span>`).join('')}
+        </div>
+      </div>
+      <button class="btn-save" onclick="saveVinyl()">save to vault →</button>
+      <button class="btn-secondary" onclick="clearVinylConfirm()">← back to results</button>
+    </div>`;
+}
+
+function setVinylRating(n) {
+  vinylRating = n;
+  document.querySelectorAll('#vStars .star').forEach((s, i) => s.classList.toggle('lit', i < n));
+}
+
+function clearVinylConfirm() {
+  document.getElementById('vConfirm').innerHTML = '';
+  selectedVinyl = null;
+}
+
+async function saveVinyl() {
+  if (!vaultHandle) { showToast('connect your vault first', 'error'); return; }
+  const color = document.getElementById('vColorFinal').value.trim() || 'Unknown';
+  const data = selectedVinyl;
+  let title, artists, year, released, master_id, genres, styles, coverUrl, tracklist, notes;
+
+  if (data && !data._fallback) {
+    title = data.title;
+    artists = data.artists ? data.artists.map(a => a.name.replace(/\s\(\d+\)$/, '').trim()) : [document.getElementById('vArtist').value];
+    year = data.year || ''; released = data.released || ''; master_id = data.master_id || '';
+    genres = data.genres || []; styles = data.styles || [];
+    coverUrl = data.images?.[0]?.uri || '';
+    tracklist = data.tracklist ? data.tracklist.map(t => `${t.position}. ${t.title}${t.duration?' ('+t.duration+')':''}`).join('\n') : '';
+    notes = data.notes || '';
+  } else {
+    const r = data?._result || {};
+    const parts = (r.title || '').split(' - ');
+    title = parts.length > 1 ? parts.slice(1).join(' - ') : parts[0];
+    artists = [document.getElementById('vArtist').value];
+    year = r.year || ''; released = ''; master_id = ''; genres = []; styles = [];
+    coverUrl = r.cover_image || ''; tracklist = ''; notes = '';
+  }
+
+  const sanitize = s => (s || '').replace(/[\\/:*?"<>|]/g, '-');
+  let filename = sanitize(title);
+  if (filename.toLowerCase() === sanitize(artists[0]).toLowerCase()) filename += ' (Album)';
+  filename += '.md';
+
+  const createdDate = new Date().toISOString().slice(0, 10);
+  const content = `---
+category: "[[Albums]]"
+tags:
+  - music
+  - albums
+  - vinyls
+color: "${color}"
+artist:
+${artists.map(a=>`  - "${a}"`).join('\n')}
+title: "${title}"
+year: ${year}
+released: "${released}"
+master_id: ${master_id}
+genre:
+${genres.map(g=>`  - "${g}"`).join('\n')}
+styles:
+${styles.map(s=>`  - "${s}"`).join('\n')}
+rating: ${vinylRating || ''}
+created: ${createdDate}
+---
+
+${coverUrl ? `![Album Cover|300](${coverUrl})\n` : ''}
+## Tracklist
+${tracklist || 'Not available.'}
+
+---
+## Notes from Discogs
+${notes}
+`;
+
+  try {
+    const refs = await getOrCreateFolder(vaultHandle, 'References');
+    const vinylFolder = await getOrCreateFolder(refs, 'Vinyl');
+    await writeFile(vinylFolder, filename, content);
+    addRecent({ type: 'vinyl', title, sub: artists.join(', '), cover: coverUrl });
+    showToast(`saved: ${title}`, 'success');
+    resetVinylForm();
+    await loadCollections();
+  } catch(e) { showToast('save failed — check vault permissions', 'error'); }
+}
+
+function resetVinylForm() {
+  document.getElementById('vArtist').value = '';
+  document.getElementById('vTitle').value = '';
+  document.getElementById('vColor').value = '';
+  document.getElementById('vResults').innerHTML = '';
+  document.getElementById('vConfirm').innerHTML = '';
+  selectedVinyl = null; vinylRating = 0;
+}
+
+// ════════════════════════════════════════════
+// BOOKS ADD
+// ════════════════════════════════════════════
+async function searchBooks() {
+  const author = document.getElementById('bAuthor').value.trim();
+  const title = document.getElementById('bTitle').value.trim();
+  if (!author || !title) { showToast('enter author and title', 'error'); return; }
+
+  const btn = document.getElementById('bSearchBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>searching...';
+  document.getElementById('bResults').innerHTML = '';
+  document.getElementById('bConfirm').innerHTML = '';
+  selectedBook = null;
+
+  try {
+    const url = `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=6`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.docs || data.docs.length === 0) {
+      document.getElementById('bResults').innerHTML = '<p class="hint">no results — try adjusting the search</p>';
+    } else {
+      renderBookResults(data.docs.slice(0, 6));
+    }
+  } catch(e) { showToast('open library search failed', 'error'); }
+
+  btn.disabled = false;
+  btn.textContent = '+ search open library';
+}
+
+function renderBookResults(docs) {
+  window._bookResults = docs;
+  document.getElementById('bResults').innerHTML = `
+    <div class="section">
+      <div class="section-label">select edition</div>
+      <div class="results-grid">
+        ${docs.map((d, i) => {
+          const cover = d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : null;
+          return `<div class="result-card" onclick="selectBook(${i})" id="br-${i}">
+            ${cover ? `<img class="result-cover" src="${cover}" alt="" loading="lazy">` : `<div class="result-cover-placeholder">☰</div>`}
+            <div class="result-info">
+              <div class="result-title">${d.title}</div>
+              <div class="result-sub">${d.first_publish_year || '—'}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+async function selectBook(index) {
+  document.querySelectorAll('[id^="br-"]').forEach(el => el.classList.remove('selected'));
+  document.getElementById(`br-${index}`).classList.add('selected');
+  const doc = window._bookResults[index];
+  document.getElementById('bConfirm').innerHTML = '<div class="loading-row"><span class="spinner"></span>loading book data...</div>';
+
+  let description = '';
+  if (doc.key) {
+    try {
+      const res = await fetch(`https://openlibrary.org${doc.key}.json`);
+      const work = await res.json();
+      description = typeof work.description === 'string' ? work.description : work.description?.value || '';
+      if (description.length > 800) description = description.slice(0, 800).trimEnd() + '…';
+    } catch(e) {}
+  }
+
+  selectedBook = { ...doc, _description: description };
+  bookRating = 0;
+  renderBookConfirm(selectedBook);
+}
+
+function renderBookConfirm(doc) {
+  const cover = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null;
+  const author = document.getElementById('bAuthor').value;
+  const today = new Date().toISOString().slice(0, 10);
+
+  document.getElementById('bConfirm').innerHTML = `
+    <div class="confirm-section">
+      <div class="section-label">confirm & save</div>
+      <div class="confirm-header">
+        ${cover ? `<img class="confirm-cover" src="${cover}" alt="">` : `<div class="confirm-cover-placeholder">☰</div>`}
+        <div class="confirm-meta">
+          <div class="confirm-title">${doc.title}</div>
+          <div class="confirm-sub">${author} · ${doc.first_publish_year || '—'}</div>
+          ${doc.number_of_pages_median ? `<span class="confirm-tag">${doc.number_of_pages_median} pages</span>` : ''}
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Format</label>
+          <select id="bForm">
+            <option>Audiobook</option>
+            <option>Physical</option>
+            <option>Kindle</option>
+            <option>PDF</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select id="bStatus">
+            <option>Read</option>
+            <option>Reading</option>
+            <option>Want to Read</option>
+            <option>Did Not Finish</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Start Date</label>
+          <input type="date" id="bStart" />
+        </div>
+        <div class="field">
+          <label>End Date</label>
+          <input type="date" id="bEnd" value="${today}" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Rating</label>
+        <div class="rating-row" id="bStars">
+          ${[1,2,3,4,5].map(n => `<span class="star" onclick="setBookRating(${n})">★</span>`).join('')}
+        </div>
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="bNotes" placeholder="Optional thoughts..."></textarea>
+      </div>
+      <button class="btn-save" onclick="saveBook()">save to vault →</button>
+      <button class="btn-secondary" onclick="clearBookConfirm()">← back to results</button>
+    </div>`;
+}
+
+function setBookRating(n) {
+  bookRating = n;
+  document.querySelectorAll('#bStars .star').forEach((s, i) => s.classList.toggle('lit', i < n));
+}
+
+function clearBookConfirm() {
+  document.getElementById('bConfirm').innerHTML = '';
+  selectedBook = null;
+}
+
+async function saveBook() {
+  if (!vaultHandle) { showToast('connect your vault first', 'error'); return; }
+  const doc = selectedBook;
+  const author = document.getElementById('bAuthor').value.trim();
+  const form = document.getElementById('bForm').value;
+  const status = document.getElementById('bStatus').value;
+  const startDate = document.getElementById('bStart').value;
+  const endDate = document.getElementById('bEnd').value;
+  const notes = document.getElementById('bNotes').value.trim();
+  const title = doc.title;
+  const isbn = doc.isbn?.[0] || '';
+  const year = doc.first_publish_year || '';
+  const pages = doc.number_of_pages_median || '';
+  const publisher = doc.publisher?.[0] || '';
+  const cover = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : '';
+  const subjects = (doc.subject || []).slice(0, 4);
+  const description = doc._description || '_No description available._';
+
+  const sanitize = s => (s || '').replace(/[\\/:*?"<>|]/g, '-');
+  const filename = sanitize(title) + '.md';
+  const createdDate = new Date().toISOString().slice(0, 10);
+  const starRating = bookRating ? '⭐'.repeat(bookRating) + '☆'.repeat(5 - bookRating) : '';
+
+  const content = `---
+category: "[[Books]]"
+tags:
+  - books
+  - reading
+author:
+  - "${author}"
+title: "${title.replace(/"/g,"'")}"
+isbn: "${isbn}"
+year: ${year}
+pages: ${pages}
+publisher: "${publisher.replace(/"/g,"'")}"
+genre:
+${subjects.map(s=>`  - "${s}"`).join('\n')}
+form: "${form}"
+status: "${status}"
+start_date: "${startDate}"
+end_date: "${endDate}"
+rating: ${bookRating || ''}
+created: ${createdDate}
+---
+
+${cover ? `![Book Cover|200](${cover})\n` : ''}
+## Synopsis
+${description}
+
+---
+## My Notes
+${notes || '_No notes yet._'}
+
+${starRating ? `**Rating:** ${starRating} (${bookRating}/5)\n` : ''}
+---
+## Details
+| Field | Value |
+|---|---|
+| Author | ${author} |
+| Published | ${year} |
+| Pages | ${pages} |
+| Publisher | ${publisher || 'N/A'} |
+| ISBN | ${isbn || 'N/A'} |
+| Format | ${form} |
+| Status | ${status} |
+${startDate ? `| Started | ${startDate} |` : ''}
+${endDate ? `| Finished | ${endDate} |` : ''}
+`;
+
+  try {
+    const refs = await getOrCreateFolder(vaultHandle, 'References');
+    const booksFolder = await getOrCreateFolder(refs, 'Books');
+    await writeFile(booksFolder, filename, content);
+    addRecent({ type: 'book', title, sub: author, cover });
+    showToast(`saved: ${title}`, 'success');
+    resetBookForm();
+    await loadCollections();
+  } catch(e) { showToast('save failed — check vault permissions', 'error'); }
+}
+
+function resetBookForm() {
+  document.getElementById('bAuthor').value = '';
+  document.getElementById('bTitle').value = '';
+  document.getElementById('bResults').innerHTML = '';
+  document.getElementById('bConfirm').innerHTML = '';
+  selectedBook = null; bookRating = 0;
+}
+
+// ════════════════════════════════════════════
+// RECENT
+// ════════════════════════════════════════════
+function addRecent(entry) {
+  recentEntries.unshift({ ...entry, ts: Date.now() });
+  recentEntries = recentEntries.slice(0, 6);
+  localStorage.setItem('ledger_recent', JSON.stringify(recentEntries));
+  renderRecent();
+}
+
+function renderRecent() {
+  if (recentEntries.length === 0) return;
+  const section = document.getElementById('recentSection');
+  section.style.display = 'block';
+  document.getElementById('recentList').innerHTML = recentEntries.map(e => `
+    <div class="recent-item">
+      ${e.cover && !e.cover.includes('spacer')
+        ? `<img class="recent-cover" src="${e.cover}" alt="">`
+        : `<div class="recent-cover" style="display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--faint)">${e.type==='vinyl'?'♪':'☰'}</div>`}
+      <div>
+        <div class="recent-title">${e.title}</div>
+        <div class="recent-sub">${e.sub}</div>
+      </div>
+      <span class="badge">${e.type}</span>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
