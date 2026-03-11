@@ -774,8 +774,15 @@ function switchNav(nav) {
     document.getElementById(`panel${n.charAt(0).toUpperCase()+n.slice(1)}`).style.display = n === nav ? 'block' : 'none';
     document.getElementById(`nav${n.charAt(0).toUpperCase()+n.slice(1)}`).classList.toggle('active', n === nav);
   });
-  if (nav === 'browse') renderBrowse();
-  if (nav === 'stats') renderStats();
+  if (nav === 'browse') {
+    document.getElementById('browseFilter').value = '';
+    if (vaultHandle && vinylCollection.length === 0 && booksCollection.length === 0) loadCollections();
+    else renderBrowse();
+  }
+  if (nav === 'stats') {
+    if (vaultHandle && vinylCollection.length === 0 && booksCollection.length === 0) loadCollections();
+    else renderStats();
+  }
 }
 
 function switchAddTab(tab) {
@@ -791,6 +798,7 @@ function switchBrowseTab(tab) {
   document.getElementById('browseTabVinyl').classList.toggle('active', tab === 'vinyl');
   document.getElementById('browseTabBooks').classList.toggle('active', tab === 'books');
   document.getElementById('browseSearch').value = '';
+  document.getElementById('browseFilter').value = '';
   renderBrowse();
 }
 
