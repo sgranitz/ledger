@@ -698,6 +698,8 @@ async function writeFile(folderHandle, filename, content) {
 // ════════════════════════════════════════════
 async function loadCollections() {
   if (!vaultHandle) return;
+  // Show loading state in browse grid
+  document.getElementById('collectionGrid').innerHTML = '<div class="browse-empty"><span class="spinner"></span> loading collection...</div>';
   try {
     const refs = await vaultHandle.getDirectoryHandle('References', { create: false });
 
@@ -733,6 +735,8 @@ async function readMdFiles(dirHandle) {
 }
 
 function parseFrontmatter(text) {
+  // Normalize line endings (Windows CRLF → LF)
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const match = text.match(/^---\n([\s\S]*?)\n---/);
   if (!match) return null;
   const yaml = match[1];
