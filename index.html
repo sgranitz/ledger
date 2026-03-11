@@ -1130,7 +1130,7 @@ function renderVinylStats() {
   const topGenres = Object.entries(genreCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const maxGenre = topGenres[0]?.[1] || 1;
 
-  // Color distribution
+  // Color distribution — split black from the rest
   const colorCounts = {};
   c.forEach(item => {
     if (item.color) {
@@ -1138,7 +1138,12 @@ function renderVinylStats() {
       colorCounts[col] = (colorCounts[col]||0) + 1;
     }
   });
-  const topColors = Object.entries(colorCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const blackCount = Object.entries(colorCounts)
+    .filter(([col]) => col.toLowerCase() === 'black')
+    .reduce((s, [,n]) => s + n, 0);
+  const topColors = Object.entries(colorCounts)
+    .filter(([col]) => col.toLowerCase() !== 'black')
+    .sort((a,b) => b[1]-a[1]).slice(0, 10);
   const maxColor = topColors[0]?.[1] || 1;
 
   // Top artists
@@ -1184,8 +1189,14 @@ function renderVinylStats() {
       </div>
     </div>
 
+    <div class="stat-card">
+      <div class="stat-label">black vinyl</div>
+      <div class="stat-number">${blackCount}</div>
+      <div class="stat-sublabel">${Math.round(blackCount/c.length*100)}% of collection</div>
+    </div>
+
     <div class="stat-card full">
-      <div class="stat-label">vinyl color distribution</div>
+      <div class="stat-label">colored vinyl <span style="opacity:0.45;font-size:10px;margin-left:6px">excluding black</span></div>
       <div class="bar-chart">
         ${topColors.map(([col,n]) => `
           <div class="bar-row">
@@ -1268,7 +1279,7 @@ function renderBookStats() {
     <div class="stat-card">
       <div class="stat-label">total books</div>
       <div class="stat-number">${c.length}</div>
-      <div class="stat-sublabel">${read} read</div>
+      <div class="stat-sublabel">in your vault</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">avg rating</div>
