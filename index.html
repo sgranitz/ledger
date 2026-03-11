@@ -1345,7 +1345,7 @@ tags:
   - vinyls
 color: "${color}"
 artist:
-${artists.map(a=>`  - "${a}"`).join('\n')}
+${artists.map(a=>`  - "[[${a}]]"`).join('\n')}
 title: "${title}"
 year: ${year}
 released: "${released}"
@@ -1370,6 +1370,19 @@ ${notes}
   try {
     const refs = await getOrCreateFolder(vaultHandle, 'References');
     const vinylFolder = await getOrCreateFolder(refs, 'Vinyl');
+    const musiciansFolder = await getOrCreateFolder(refs, 'Musicians');
+
+    // Create musician stubs for any new artists
+    for (const artist of artists) {
+      const artistFilename = sanitize(artist) + '.md';
+      try {
+        await musiciansFolder.getFileHandle(artistFilename);
+      } catch(e) {
+        const stub = `---\ncategory: "[[Musicians]]"\ntags:\n  - artist\nname: "${artist}"\ncreated: ${createdDate}\n---\n\n# ${artist}\n`;
+        await writeFile(musiciansFolder, artistFilename, stub);
+      }
+    }
+
     await writeFile(vinylFolder, filename, content);
     addRecent({ type: 'vinyl', title, sub: artists.join(', '), cover: coverUrl });
     showToast(`saved: ${title}`, 'success');
@@ -1559,7 +1572,7 @@ tags:
   - books
   - reading
 author:
-  - "${author}"
+  - "[[${author}]]"
 title: "${title.replace(/"/g,"'")}"
 isbn: "${isbn}"
 year: ${year}
@@ -1602,6 +1615,18 @@ ${endDate ? `| Finished | ${endDate} |` : ''}
   try {
     const refs = await getOrCreateFolder(vaultHandle, 'References');
     const booksFolder = await getOrCreateFolder(refs, 'Books');
+    const authorsFolder = await getOrCreateFolder(refs, 'Authors');
+
+    // Create author stub if it doesn't exist
+    const authorFilename = sanitize(author) + '.md';
+    try {
+      await authorsFolder.getFileHandle(authorFilename);
+    } catch(e) {
+      // Doesn't exist — create stub
+      const authorStub = `---\ncategory: "[[Authors]]"\ntags:\n  - author\nname: "${author}"\ncreated: ${createdDate}\n---\n\n# ${author}\n`;
+      await writeFile(authorsFolder, authorFilename, authorStub);
+    }
+
     await writeFile(booksFolder, filename, content);
     addRecent({ type: 'book', title, sub: author, cover });
     showToast(`saved: ${title}`, 'success');
