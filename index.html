@@ -349,30 +349,19 @@ body {
 .browse-search:focus { border-color: var(--amber); }
 
 .filter-bar {
-  display: flex; flex-wrap: wrap; gap: 6px;
-  margin-bottom: 14px; min-height: 0;
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 14px;
 }
-.filter-group {
-  display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
-}
-.filter-group-label {
-  font-family: 'DM Mono', monospace; font-size: 9px;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--faint); margin-right: 2px; white-space: nowrap;
-}
-.filter-chip {
-  font-family: 'DM Mono', monospace; font-size: 10px;
-  letter-spacing: 0.05em; text-transform: uppercase;
+.filter-select {
   background: var(--card); border: 1px solid var(--border);
-  border-radius: 20px; color: var(--muted);
-  padding: 4px 10px; cursor: pointer;
-  transition: all 0.15s; white-space: nowrap;
+  border-radius: 6px; color: var(--muted);
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  letter-spacing: 0.06em; padding: 7px 10px; cursor: pointer;
+  outline: none; flex: 1; min-width: 120px;
 }
-.filter-chip:hover { border-color: var(--border2); color: var(--cream); }
-.filter-chip.active { background: var(--amber); border-color: var(--amber); color: var(--bg); font-weight: 600; }
-.filter-divider {
-  width: 1px; background: var(--border); margin: 0 4px; align-self: stretch;
-}
+.filter-select:focus { border-color: var(--amber); }
+.filter-select option { background: var(--card2); }
+.filter-select.active { border-color: var(--amber); color: var(--amber); }
 
 .collection-grid {
   display: grid;
@@ -971,8 +960,8 @@ function debouncedSearch() {
   searchDebounce = setTimeout(() => filterCollection(), 300);
 }
 
-function toggleFilter(key, value) {
-  if (activeFilters[key] === value) {
+function setFilter(key, value) {
+  if (value === '') {
     delete activeFilters[key];
   } else {
     activeFilters[key] = value;
@@ -989,55 +978,39 @@ function renderFilterBar() {
 
   const groups = isVinyl
     ? [
-        { key: 'genre', label: 'genre', multi: true },
-        { key: 'color', label: 'color', multi: true },
-        { key: 'year', label: 'decade', decade: true },
+        { key: 'genre', label: 'all genres' },
+        { key: 'color', label: 'all colors' },
+        { key: 'year', label: 'all decades', decade: true },
       ]
     : [
-        { key: 'status', label: 'status', multi: false },
-        { key: 'genre', label: 'genre', multi: true },
+        { key: 'status', label: 'all statuses' },
+        { key: 'genre', label: 'all genres' },
       ];
 
   let html = '';
   for (const group of groups) {
-    const values = new Set();
+    const valueCounts = {};
     collection.forEach(item => {
       if (group.decade) {
         const y = parseInt(item.year);
-        if (y) values.add(Math.floor(y / 10) * 10 + 's');
+        if (y) { const d = Math.floor(y/10)*10+'s'; valueCounts[d] = (valueCounts[d]||0)+1; }
       } else {
         const v = item[group.key];
-        if (Array.isArray(v)) v.forEach(x => x && values.add(x));
-        else if (v) values.add(v);
+        const vals = Array.isArray(v) ? v : (v ? [v] : []);
+        vals.forEach(x => { if (x) valueCounts[x] = (valueCounts[x]||0)+1; });
       }
     });
-    if (values.size === 0) continue;
 
-    const sorted = [...values].sort((a, b) => {
-      // sort decade numerically, others alphabetically
-      if (group.decade) return parseInt(a) - parseInt(b);
-      // sort by count desc
-      const countOf = v => collection.filter(item => {
-        const iv = item[group.key];
-        const vals = Array.isArray(iv) ? iv : (iv ? [iv] : []);
-        return vals.includes(v);
-      }).length;
-      return countOf(b) - countOf(a);
-    });
+    let sorted = Object.entries(valueCounts).sort((a,b) => b[1]-a[1]);
+    if (group.decade) sorted = sorted.sort((a,b) => parseInt(a[0])-parseInt(b[0]));
+    if (sorted.length === 0) continue;
 
-    html += `<div class="filter-group">
-      <span class="filter-group-label">${group.label}</span>
-      ${sorted.map(v => `<button class="filter-chip ${activeFilters[group.key] === v ? 'active' : ''}"
-        onclick="toggleFilter('${group.key}', '${v.replace(/'/g,"\\'")}')">
-        ${v}
-      </button>`).join('')}
-    </div>`;
-    html += '<div class="filter-divider"></div>';
-  }
-
-  // Clear all button if any active
-  if (Object.keys(activeFilters).length > 0) {
-    html += `<button class="filter-chip active" onclick="activeFilters={}; renderFilterBar(); renderGrid();">✕ clear</button>`;
+    const active = activeFilters[group.key] || '';
+    html += `<select class="filter-select ${active ? 'active' : ''}"
+      onchange="setFilter('${group.key}', this.value)">
+      <option value="">${group.label}</option>
+      ${sorted.map(([v, n]) => `<option value="${v.replace(/"/g,'&quot;')}" ${active===v?'selected':''}>${v} (${n})</option>`).join('')}
+    </select>`;
   }
 
   bar.innerHTML = html;
