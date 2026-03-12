@@ -336,11 +336,11 @@ body {
 
 /* ── BROWSE ── */
 .browse-controls {
-  display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 
 .browse-search {
-  flex: 1; min-width: 180px;
+  width: 100%; box-sizing: border-box;
   background: var(--card); border: 1px solid var(--border);
   border-radius: 6px; color: var(--cream);
   font-family: 'DM Mono', monospace; font-size: 12px;
@@ -348,13 +348,31 @@ body {
 }
 .browse-search:focus { border-color: var(--amber); }
 
-.browse-filter {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 6px; color: var(--muted);
-  font-family: 'DM Mono', monospace; font-size: 11px;
-  letter-spacing: 0.06em; padding: 9px 12px; cursor: pointer; outline: none;
+.filter-bar {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 14px; min-height: 0;
 }
-.browse-filter option { background: var(--card2); }
+.filter-group {
+  display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+}
+.filter-group-label {
+  font-family: 'DM Mono', monospace; font-size: 9px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--faint); margin-right: 2px; white-space: nowrap;
+}
+.filter-chip {
+  font-family: 'DM Mono', monospace; font-size: 10px;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 20px; color: var(--muted);
+  padding: 4px 10px; cursor: pointer;
+  transition: all 0.15s; white-space: nowrap;
+}
+.filter-chip:hover { border-color: var(--border2); color: var(--cream); }
+.filter-chip.active { background: var(--amber); border-color: var(--amber); color: var(--bg); font-weight: 600; }
+.filter-divider {
+  width: 1px; background: var(--border); margin: 0 4px; align-self: stretch;
+}
 
 .collection-grid {
   display: grid;
@@ -633,11 +651,10 @@ body {
   </div>
 
   <div class="browse-controls">
-    <input class="browse-search" id="browseSearch" type="text" placeholder="search..." oninput="debouncedSearch()">
-    <select class="browse-filter" id="browseFilter" onchange="filterCollection()">
-      <option value="">all</option>
-    </select>
+    <input class="browse-search" id="browseSearch" type="text" placeholder="search by title or artist..." oninput="debouncedSearch()">
   </div>
+
+  <div class="filter-bar" id="filterBar"></div>
 
   <div class="browse-count" id="browseCount"></div>
   <div class="collection-grid" id="collectionGrid">
@@ -677,6 +694,7 @@ let booksCollection = [];
 let currentBrowseType = 'vinyl';
 let currentStatsType = 'vinyl';
 let currentAddTab = 'vinyl';
+let activeFilters = {}; // { genre: 'Hip Hop', color: 'Red', ... }
 
 // ════════════════════════════════════════════
 // INIT
@@ -716,6 +734,7 @@ function disconnectVault() {
   vaultHandle = null;
   vinylCollection = [];
   booksCollection = [];
+  browseCache = { vinyl: null, books: null };
   updateVaultUI();
 }
 
@@ -784,6 +803,7 @@ async function loadCollections() {
 
     vinylCollection = [];
     booksCollection = [];
+    browseCache = { vinyl: null, books: null };
     renderBrowse();
     renderStats();
   } catch(e) { /* no References folder yet */ }
@@ -901,7 +921,7 @@ function switchNav(nav) {
     document.getElementById(`nav${n.charAt(0).toUpperCase()+n.slice(1)}`).classList.toggle('active', n === nav);
   });
   if (nav === 'browse') {
-    document.getElementById('browseFilter').value = '';
+    activeFilters = {};
     if (vaultHandle && vinylCollection.length === 0 && booksCollection.length === 0) loadCollections();
     else renderBrowse();
   }
@@ -924,7 +944,7 @@ function switchBrowseTab(tab) {
   document.getElementById('browseTabVinyl').classList.toggle('active', tab === 'vinyl');
   document.getElementById('browseTabBooks').classList.toggle('active', tab === 'books');
   document.getElementById('browseSearch').value = '';
-  document.getElementById('browseFilter').value = '';
+  activeFilters = {};
   renderBrowse();
 }
 
@@ -938,8 +958,11 @@ function switchStatsTab(tab) {
 // ════════════════════════════════════════════
 // BROWSE
 // ════════════════════════════════════════════
+
+// Full parsed collection cache for browse (loaded on demand)
+let browseCache = { vinyl: null, books: null };
+
 function renderBrowse() {
-  // Just trigger a search with current query
   filterCollection();
 }
 
@@ -948,16 +971,137 @@ function debouncedSearch() {
   searchDebounce = setTimeout(() => filterCollection(), 300);
 }
 
-async function filterCollection() {
-  const q = document.getElementById('browseSearch').value.trim();
+function toggleFilter(key, value) {
+  if (activeFilters[key] === value) {
+    delete activeFilters[key];
+  } else {
+    activeFilters[key] = value;
+  }
+  renderFilterBar();
+  renderGrid();
+}
+
+function renderFilterBar() {
+  const isVinyl = currentBrowseType === 'vinyl';
+  const collection = isVinyl ? browseCache.vinyl : browseCache.books;
+  const bar = document.getElementById('filterBar');
+  if (!collection || collection.length === 0) { bar.innerHTML = ''; return; }
+
+  const groups = isVinyl
+    ? [
+        { key: 'genre', label: 'genre', multi: true },
+        { key: 'color', label: 'color', multi: true },
+        { key: 'year', label: 'decade', decade: true },
+      ]
+    : [
+        { key: 'status', label: 'status', multi: false },
+        { key: 'genre', label: 'genre', multi: true },
+      ];
+
+  let html = '';
+  for (const group of groups) {
+    const values = new Set();
+    collection.forEach(item => {
+      if (group.decade) {
+        const y = parseInt(item.year);
+        if (y) values.add(Math.floor(y / 10) * 10 + 's');
+      } else {
+        const v = item[group.key];
+        if (Array.isArray(v)) v.forEach(x => x && values.add(x));
+        else if (v) values.add(v);
+      }
+    });
+    if (values.size === 0) continue;
+
+    const sorted = [...values].sort((a, b) => {
+      // sort decade numerically, others alphabetically
+      if (group.decade) return parseInt(a) - parseInt(b);
+      // sort by count desc
+      const countOf = v => collection.filter(item => {
+        const iv = item[group.key];
+        const vals = Array.isArray(iv) ? iv : (iv ? [iv] : []);
+        return vals.includes(v);
+      }).length;
+      return countOf(b) - countOf(a);
+    });
+
+    html += `<div class="filter-group">
+      <span class="filter-group-label">${group.label}</span>
+      ${sorted.map(v => `<button class="filter-chip ${activeFilters[group.key] === v ? 'active' : ''}"
+        onclick="toggleFilter('${group.key}', '${v.replace(/'/g,"\\'")}')">
+        ${v}
+      </button>`).join('')}
+    </div>`;
+    html += '<div class="filter-divider"></div>';
+  }
+
+  // Clear all button if any active
+  if (Object.keys(activeFilters).length > 0) {
+    html += `<button class="filter-chip active" onclick="activeFilters={}; renderFilterBar(); renderGrid();">✕ clear</button>`;
+  }
+
+  bar.innerHTML = html;
+}
+
+function renderGrid() {
+  const isVinyl = currentBrowseType === 'vinyl';
+  const collection = isVinyl ? browseCache.vinyl : browseCache.books;
   const grid = document.getElementById('collectionGrid');
   const countEl = document.getElementById('browseCount');
+  const q = document.getElementById('browseSearch').value.trim().toLowerCase();
+
+  if (!collection) return;
+
+  let items = collection;
+
+  // Text search
+  if (q) {
+    const field = isVinyl ? 'artist' : 'author';
+    items = items.filter(item => {
+      const title = (item.title || item.filename || '').toLowerCase();
+      const person = Array.isArray(item[field])
+        ? item[field].join(' ').toLowerCase()
+        : (item[field] || '').toLowerCase();
+      return title.includes(q) || person.includes(q);
+    });
+  }
+
+  // Chip filters
+  for (const [key, value] of Object.entries(activeFilters)) {
+    items = items.filter(item => {
+      if (key === 'year') {
+        const y = parseInt(item.year);
+        const decade = y ? Math.floor(y / 10) * 10 + 's' : null;
+        return decade === value;
+      }
+      const v = item[key];
+      const vals = Array.isArray(v) ? v : (v ? [v] : []);
+      return vals.includes(value);
+    });
+  }
+
+  const label = isVinyl ? 'records' : 'books';
+  countEl.textContent = `${items.length} of ${collection.length} ${label}`;
+
+  if (items.length === 0) {
+    grid.innerHTML = `<div class="browse-empty">no results</div>`;
+    return;
+  }
+
+  grid.innerHTML = items.map(item => isVinyl ? renderVinylCard(item) : renderBookCard(item)).join('');
+}
+
+async function filterCollection() {
   const isVinyl = currentBrowseType === 'vinyl';
   const dirHandle = isVinyl ? vinylDirHandle : booksDirHandle;
+  const cacheKey = isVinyl ? 'vinyl' : 'books';
+  const grid = document.getElementById('collectionGrid');
+  const countEl = document.getElementById('browseCount');
   const label = isVinyl ? 'records' : 'books';
 
   if (!vaultHandle) {
     countEl.textContent = '';
+    document.getElementById('filterBar').innerHTML = '';
     grid.innerHTML = `<div class="browse-empty">
       <div style="margin-bottom:12px">connect your vault to browse</div>
       <button class="btn-sm" onclick="connectVault()" style="font-size:11px;padding:7px 14px">connect vault</button>
@@ -971,56 +1115,15 @@ async function filterCollection() {
     return;
   }
 
-  if (!q) {
+  // Load full collection into cache if not yet done
+  if (!browseCache[cacheKey]) {
+    grid.innerHTML = `<div class="browse-empty"><span class="spinner"></span> loading ${label}...</div>`;
     countEl.textContent = '';
-    grid.innerHTML = `<div class="browse-empty" style="opacity:0.5">type to search your collection</div>`;
-    return;
+    browseCache[cacheKey] = await readAllMdFiles(dirHandle);
+    renderFilterBar();
   }
 
-  // Show searching state
-  grid.innerHTML = `<div class="browse-empty"><span class="spinner"></span> searching...</div>`;
-  countEl.textContent = '';
-
-  try {
-    const qLow = q.toLowerCase();
-    const MAX = 48;
-
-    const index = isVinyl ? vinylIndex : booksIndex;
-    const field = isVinyl ? 'artist' : 'author';
-
-    // Match filenames (album/book title) OR artist/author from index
-    const matched = index
-      .filter(entry => {
-        const titleMatch = entry.filename.toLowerCase().replace('.md','').includes(qLow);
-        const artistMatch = entry[field] && entry[field].includes(qLow);
-        return titleMatch || artistMatch;
-      })
-      .slice(0, MAX);
-
-    if (matched.length === 0) {
-      countEl.textContent = '0 results';
-      grid.innerHTML = `<div class="browse-empty">no results for "${q}"</div>`;
-      return;
-    }
-
-    // Read matched files in parallel
-    const results = await Promise.all(matched.map(async ({ filename }) => {
-      try {
-        const handle = await dirHandle.getFileHandle(filename);
-        const file = await handle.getFile();
-        const text = await file.text();
-        const fm = parseFrontmatter(text);
-        return fm ? { filename, ...fm } : null;
-      } catch(e) { return null; }
-    }));
-
-    const items = results.filter(Boolean);
-    countEl.textContent = `${items.length} result${items.length !== 1 ? 's' : ''}`;
-    grid.innerHTML = items.map(item => isVinyl ? renderVinylCard(item) : renderBookCard(item)).join('');
-
-  } catch(e) {
-    grid.innerHTML = `<div class="browse-empty">error reading collection</div>`;
-  }
+  renderGrid();
 }
 
 function renderVinylCard(item) {
