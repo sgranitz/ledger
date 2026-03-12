@@ -987,10 +987,31 @@ function renderFilterBar() {
         { key: 'genre', label: 'all genres' },
       ];
 
+  // Helper: filter collection by all active filters EXCEPT one key
+  function collectionWithout(excludeKey) {
+    return collection.filter(item => {
+      for (const [key, value] of Object.entries(activeFilters)) {
+        if (key === excludeKey) continue;
+        if (key === 'year') {
+          const y = parseInt(item.year);
+          const decade = y ? Math.floor(y/10)*10+'s' : null;
+          if (decade !== value) return false;
+        } else {
+          const v = item[key];
+          const vals = Array.isArray(v) ? v : (v ? [v] : []);
+          if (!vals.includes(value)) return false;
+        }
+      }
+      return true;
+    });
+  }
+
   let html = '';
   for (const group of groups) {
+    // Count against collection filtered by all OTHER active filters
+    const basis = collectionWithout(group.key);
     const valueCounts = {};
-    collection.forEach(item => {
+    basis.forEach(item => {
       if (group.decade) {
         const y = parseInt(item.year);
         if (y) { const d = Math.floor(y/10)*10+'s'; valueCounts[d] = (valueCounts[d]||0)+1; }
