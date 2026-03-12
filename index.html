@@ -1114,9 +1114,9 @@ async function filterCollection() {
     grid.innerHTML = `<div class="browse-empty"><span class="spinner"></span> loading ${label}...</div>`;
     countEl.textContent = '';
     browseCache[cacheKey] = await readAllMdFiles(dirHandle);
-    renderFilterBar();
   }
 
+  renderFilterBar();
   renderGrid();
 }
 
