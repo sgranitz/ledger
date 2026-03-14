@@ -48,6 +48,22 @@ body {
   gap: 10px;
 }
 
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.back-link {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  opacity: 0.7;
+}
+.back-link:hover { color: var(--amber); opacity: 1; }
+
 .wordmark {
   font-family: 'Playfair Display', serif;
   font-size: 26px;
@@ -387,14 +403,14 @@ body {
   aspect-ratio: 1;
   object-fit: cover;
   border-radius: 4px;
-  border: 1px solid var(--border1);
+  border: 1px solid var(--border);
 }
 .fav-cover-placeholder {
   width: 100%;
   aspect-ratio: 1;
   border-radius: 4px;
-  border: 1px solid var(--border1);
-  background: var(--surface2);
+  border: 1px solid var(--border);
+  background: var(--card);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -571,7 +587,10 @@ body {
 
 <!-- HEADER -->
 <header class="header">
-  <div class="wordmark">the <em>ledger</em></div>
+  <div class="header-left">
+    <a class="back-link" href="https://www.stoult.com/workshop/">← return to the workshop</a>
+    <div class="wordmark">the <em>ledger</em></div>
+  </div>
   <div class="vault-status">
     <div class="status-dot" id="statusDot"></div>
     <span id="statusText">no vault</span>
