@@ -76,20 +76,40 @@ body {
 .vault-status {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  text-transform: uppercase;
 }
 
-.status-dot {
+.identity-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 10px 5px 8px;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+.identity-pill.connected { border-color: var(--amber-mid); }
+
+.pill-dot {
   width: 6px; height: 6px;
   border-radius: 50%;
   background: var(--faint);
+  flex-shrink: 0;
   transition: background 0.3s;
 }
-.status-dot.connected { background: var(--green); }
+.pill-dot.on { background: var(--green); }
+
+.pill-label {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
 
 .btn-sm {
   background: transparent;
@@ -166,20 +186,6 @@ body {
   border: 1px solid var(--border);
 }
 
-/* ── VAULT BANNER ── */
-.vault-banner {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 18px;
-  font-size: 11px;
-  letter-spacing: 0.05em;
-}
-.vault-name { color: var(--amber); font-size: 11px; }
 
 /* ── SECTION CARD ── */
 .section {
@@ -592,9 +598,14 @@ body {
     <div class="wordmark">the <em>ledger</em></div>
   </div>
   <div class="vault-status">
-    <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">no vault</span>
-    <button class="btn-sm" id="btnConnect">connect</button>
+    <div id="vaultOut">
+      <button class="btn-sm" id="btnConnect">connect vault</button>
+    </div>
+    <div class="identity-pill" id="vaultIn" style="display:none">
+      <div class="pill-dot" id="pillDot"></div>
+      <span class="pill-label" id="vaultName">—</span>
+      <button class="btn-sm" onclick="disconnectVault()">change</button>
+    </div>
   </div>
 </header>
 
@@ -604,13 +615,6 @@ body {
   <button class="nav-btn" id="navBrowse" onclick="switchNav('browse')">browse</button>
   <button class="nav-btn" id="navStats" onclick="switchNav('stats')">stats</button>
 </nav>
-
-<!-- VAULT BANNER -->
-<div class="vault-banner" id="vaultBanner" style="display:none">
-  <span style="color:var(--muted);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;">vault</span>
-  <span class="vault-name" id="vaultName">—</span>
-  <button class="btn-sm" onclick="disconnectVault()">change</button>
-</div>
 
 <!-- ════════════════ ADD PANEL ════════════════ -->
 <div id="panelAdd">
@@ -747,21 +751,19 @@ function disconnectVault() {
 }
 
 function updateVaultUI() {
-  const dot = document.getElementById('statusDot');
-  const txt = document.getElementById('statusText');
-  const banner = document.getElementById('vaultBanner');
-  const btn = document.getElementById('btnConnect');
   if (vaultHandle) {
-    dot.classList.add('connected');
-    txt.textContent = 'connected';
-    btn.style.display = 'none';
-    banner.style.display = 'flex';
+    document.getElementById('vaultOut').style.display = 'none';
+    const pill = document.getElementById('vaultIn');
+    pill.style.display = 'flex';
+    pill.classList.add('connected');
+    document.getElementById('pillDot').classList.add('on');
     document.getElementById('vaultName').textContent = vaultHandle.name;
   } else {
-    dot.classList.remove('connected');
-    txt.textContent = 'no vault';
-    btn.style.display = 'inline-block';
-    banner.style.display = 'none';
+    document.getElementById('vaultOut').style.display = '';
+    const pill = document.getElementById('vaultIn');
+    pill.style.display = 'none';
+    pill.classList.remove('connected');
+    document.getElementById('pillDot').classList.remove('on');
   }
 }
 
