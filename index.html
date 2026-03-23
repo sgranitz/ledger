@@ -43,8 +43,6 @@ body {
   align-items: baseline;
   justify-content: space-between;
   padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 24px;
   flex-wrap: wrap;
   gap: 10px;
 }
@@ -644,16 +642,16 @@ body {
   </div>
 </header>
 
+<svg class="seam" viewBox="0 0 900 20" xmlns="http://www.w3.org/2000/svg">
+  <path d="M0 14 Q280 8 500 13 Q720 18 900 9" fill="none" stroke="var(--amber)" stroke-width="1" opacity="0.35"/>
+</svg>
+
 <!-- MAIN NAV -->
 <nav class="main-nav">
   <button class="nav-btn active" id="navAdd" onclick="switchNav('add')">add</button>
   <button class="nav-btn" id="navBrowse" onclick="switchNav('browse')">browse</button>
   <button class="nav-btn" id="navStats" onclick="switchNav('stats')">stats</button>
 </nav>
-
-<svg class="seam" viewBox="0 0 900 20" xmlns="http://www.w3.org/2000/svg">
-  <path d="M0 14 Q280 8 500 13 Q720 18 900 9" fill="none" stroke="var(--amber)" stroke-width="1" opacity="0.35"/>
-</svg>
 
 <!-- ════════════════ ADD PANEL ════════════════ -->
 <div id="panelAdd">
