@@ -29,6 +29,8 @@
   --red:       #c87060;
   --blue:      #6090b0;
   --green:     #70a880;
+  --amber-mid: rgba(200,169,110,0.27);
+  --radius:    6px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -129,15 +131,15 @@ body {
 }
 .btn-sm:hover { border-color: var(--amber); color: var(--amber); }
 
-/* ── MAIN NAV ── */
+/* ── MAIN NAV (type selector: vinyl / books) ── */
 .main-nav {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 4px;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 .nav-btn {
@@ -159,13 +161,13 @@ body {
   border: 1px solid var(--border2);
 }
 
-/* ── SUB TABS ── */
+/* ── ACTION TABS (add / browse / stats) ── */
 .sub-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   background: var(--bg2);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 3px;
   margin-bottom: 18px;
 }
@@ -194,7 +196,7 @@ body {
 .section {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 16px;
 }
@@ -650,18 +652,46 @@ body {
   <path d="M0 14 Q280 8 500 13 Q720 18 900 9" fill="none" stroke="var(--amber)" stroke-width="1" opacity="0.35"/>
 </svg>
 
-<!-- MAIN NAV -->
+<!-- TYPE NAV: vinyl / books -->
 <nav class="main-nav">
-  <button class="nav-btn active" id="navAdd" onclick="switchNav('add')">add</button>
-  <button class="nav-btn" id="navBrowse" onclick="switchNav('browse')">browse</button>
-  <button class="nav-btn" id="navStats" onclick="switchNav('stats')">stats</button>
+  <button class="nav-btn active" id="navVinyl" onclick="switchType('vinyl')">⬤ vinyl</button>
+  <button class="nav-btn" id="navBooks" onclick="switchType('books')">⬤ books</button>
 </nav>
+
+<!-- ACTION NAV: add / browse / stats -->
+<div class="sub-tabs" style="margin-bottom:20px">
+  <button class="sub-tab active" id="navAdd" onclick="switchAction('add')">add</button>
+  <button class="sub-tab" id="navBrowse" onclick="switchAction('browse')">browse</button>
+  <button class="sub-tab" id="navStats" onclick="switchAction('stats')">stats</button>
+</div>
 
 <!-- ════════════════ ADD PANEL ════════════════ -->
 <div id="panelAdd">
-  <div class="sub-tabs">
-    <button class="sub-tab active" id="addTabVinyl" onclick="switchAddTab('vinyl')">⬤ vinyl</button>
-    <button class="sub-tab" id="addTabBooks" onclick="switchAddTab('books')">⬤ books</button>
+
+  <!-- ONBOARDING (shown until vault connected) -->
+  <div id="onboardingCard" class="section" style="display:none">
+    <div class="section-label">getting started</div>
+    <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">
+      The Ledger reads from an <strong style="color:var(--cream)">Obsidian vault</strong> on your device.
+      Vinyl records and books are stored as markdown files in <code style="color:var(--amber);font-family:var(--mono,monospace)">Vault/Vinyl/</code>
+      and <code style="color:var(--amber);font-family:var(--mono,monospace)">Vault/Books/</code>.
+    </p>
+    <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">
+      Connect your vault folder above to begin browsing or adding entries. Your files stay on your device — nothing is uploaded.
+    </p>
+    <div style="font-size:11px;color:var(--faint);border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      No vault yet? Create a folder with <code style="color:var(--amber)">Vinyl/</code> and <code style="color:var(--amber)">Books/</code> subfolders anywhere on your device.
+    </div>
+    <div id="discogsTokenWrap" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Discogs token</div>
+      <div style="display:flex;gap:8px">
+        <input type="password" id="discogsTokenInput" placeholder="paste your Discogs personal access token"
+          style="flex:1;background:var(--bg2);border:1px dashed var(--border2);border-radius:var(--radius);color:var(--cream);font-family:var(--mono,'Victor Mono',monospace);font-size:10px;padding:7px 10px;outline:none"
+          value="">
+        <button class="btn-sm" onclick="saveDiscogsToken(document.getElementById('discogsTokenInput').value)">save</button>
+      </div>
+      <div style="font-size:10px;color:var(--faint);margin-top:6px">Generate one at discogs.com → settings → developers. Stored in your browser only.</div>
+    </div>
   </div>
 
   <!-- VINYL ADD -->
@@ -698,10 +728,6 @@ body {
 
 <!-- ════════════════ BROWSE PANEL ════════════════ -->
 <div id="panelBrowse" style="display:none">
-  <div class="sub-tabs">
-    <button class="sub-tab active" id="browseTabVinyl" onclick="switchBrowseTab('vinyl')">⬤ vinyl</button>
-    <button class="sub-tab" id="browseTabBooks" onclick="switchBrowseTab('books')">⬤ books</button>
-  </div>
 
   <div class="browse-controls">
     <input class="browse-search" id="browseSearch" type="text" placeholder="search by title or artist..." oninput="debouncedSearch()">
@@ -717,10 +743,6 @@ body {
 
 <!-- ════════════════ STATS PANEL ════════════════ -->
 <div id="panelStats" style="display:none">
-  <div class="sub-tabs">
-    <button class="sub-tab active" id="statsTabVinyl" onclick="switchStatsTab('vinyl')">⬤ vinyl</button>
-    <button class="sub-tab" id="statsTabBooks" onclick="switchStatsTab('books')">⬤ books</button>
-  </div>
   <div id="statsContent">
     <div class="stat-card"><div class="loading-row">connect your vault to see stats</div></div>
   </div>
@@ -745,7 +767,17 @@ body {
 // ════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════
-const DISCOGS_TOKEN = 'jQZNIsPjJlcRZeemYAWWIXEDIidYNIbvjrpbJhsw';
+// Discogs token is stored in localStorage — never hardcoded in source.
+// On first use the user is prompted via the onboarding card.
+let DISCOGS_TOKEN = localStorage.getItem('ledger_discogs_token') || '';
+
+function saveDiscogsToken(val) {
+  DISCOGS_TOKEN = val.trim();
+  if (DISCOGS_TOKEN) {
+    localStorage.setItem('ledger_discogs_token', DISCOGS_TOKEN);
+    document.getElementById('discogsTokenWrap').style.display = 'none';
+  }
+}
 let vaultHandle = null;
 let selectedVinyl = null;
 let selectedBook = null;
@@ -770,8 +802,7 @@ updateVaultUI(); // always reset to disconnected state on load
 document.getElementById('btnConnect').addEventListener('click', connectVault);
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
-  const nav = document.querySelector('.nav-btn.active')?.id;
-  if (nav === 'navAdd') {
+  if (currentAction === 'add') {
     if (currentAddTab === 'vinyl' && !document.getElementById('vConfirm').innerHTML) searchVinyl();
     if (currentAddTab === 'books' && !document.getElementById('bConfirm').innerHTML) searchBooks();
   }
@@ -811,12 +842,17 @@ function updateVaultUI() {
     pill.classList.add('connected');
     document.getElementById('pillDot').classList.add('on');
     document.getElementById('vaultName').textContent = vaultHandle.name;
+    document.getElementById('onboardingCard').style.display = 'none';
   } else {
     document.getElementById('vaultOut').style.display = '';
     const pill = document.getElementById('vaultIn');
     pill.style.display = 'none';
     pill.classList.remove('connected');
     document.getElementById('pillDot').classList.remove('on');
+    if (currentAction === 'add') {
+      document.getElementById('onboardingCard').style.display = 'block';
+      document.getElementById('discogsTokenWrap').style.display = DISCOGS_TOKEN ? 'none' : 'block';
+    }
   }
 }
 
@@ -978,44 +1014,48 @@ function parseFrontmatter(text) {
 // ════════════════════════════════════════════
 // NAVIGATION
 // ════════════════════════════════════════════
-function switchNav(nav) {
+// currentAction tracks which panel is visible (add / browse / stats)
+let currentAction = 'add';
+
+function switchType(type) {
+  currentAddTab = type;
+  currentBrowseType = type;
+  currentStatsType = type;
+  document.getElementById('navVinyl').classList.toggle('active', type === 'vinyl');
+  document.getElementById('navBooks').classList.toggle('active', type === 'books');
+  // Refresh active panel for the new type
+  if (currentAction === 'add') {
+    document.getElementById('addVinyl').style.display = type === 'vinyl' ? 'block' : 'none';
+    document.getElementById('addBooks').style.display = type === 'books' ? 'block' : 'none';
+  }
+  if (currentAction === 'browse') {
+    document.getElementById('browseSearch').value = '';
+    activeFilters = {};
+    renderBrowse();
+  }
+  if (currentAction === 'stats') {
+    renderStats();
+  }
+}
+
+function switchAction(action) {
+  currentAction = action;
   ['add','browse','stats'].forEach(n => {
-    document.getElementById(`panel${n.charAt(0).toUpperCase()+n.slice(1)}`).style.display = n === nav ? 'block' : 'none';
-    document.getElementById(`nav${n.charAt(0).toUpperCase()+n.slice(1)}`).classList.toggle('active', n === nav);
+    document.getElementById(`panel${n.charAt(0).toUpperCase()+n.slice(1)}`).style.display = n === action ? 'block' : 'none';
+    document.getElementById(`nav${n.charAt(0).toUpperCase()+n.slice(1)}`).classList.toggle('active', n === action);
   });
-  if (nav === 'browse') {
+  if (!vaultHandle) {
+    document.getElementById('onboardingCard').style.display = action === 'add' ? 'block' : 'none';
+  }
+  if (action === 'browse') {
     activeFilters = {};
     if (vaultHandle && vinylCollection.length === 0 && booksCollection.length === 0) loadCollections();
     else renderBrowse();
   }
-  if (nav === 'stats') {
+  if (action === 'stats') {
     if (vaultHandle && vinylCollection.length === 0 && booksCollection.length === 0) loadCollections();
     else renderStats();
   }
-}
-
-function switchAddTab(tab) {
-  currentAddTab = tab;
-  document.getElementById('addVinyl').style.display = tab === 'vinyl' ? 'block' : 'none';
-  document.getElementById('addBooks').style.display = tab === 'books' ? 'block' : 'none';
-  document.getElementById('addTabVinyl').classList.toggle('active', tab === 'vinyl');
-  document.getElementById('addTabBooks').classList.toggle('active', tab === 'books');
-}
-
-function switchBrowseTab(tab) {
-  currentBrowseType = tab;
-  document.getElementById('browseTabVinyl').classList.toggle('active', tab === 'vinyl');
-  document.getElementById('browseTabBooks').classList.toggle('active', tab === 'books');
-  document.getElementById('browseSearch').value = '';
-  activeFilters = {};
-  renderBrowse();
-}
-
-function switchStatsTab(tab) {
-  currentStatsType = tab;
-  document.getElementById('statsTabVinyl').classList.toggle('active', tab === 'vinyl');
-  document.getElementById('statsTabBooks').classList.toggle('active', tab === 'books');
-  renderStats(); // async, fire and forget
 }
 
 // ════════════════════════════════════════════
