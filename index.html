@@ -791,6 +791,7 @@ let booksCollection = [];
 let currentBrowseType = 'vinyl';
 let currentStatsType = 'vinyl';
 let currentAddTab = 'vinyl';
+let currentAction = 'add';
 let activeFilters = {}; // { genre: 'Hip Hop', color: 'Red', ... }
 
 // ════════════════════════════════════════════
@@ -1014,8 +1015,6 @@ function parseFrontmatter(text) {
 // ════════════════════════════════════════════
 // NAVIGATION
 // ════════════════════════════════════════════
-// currentAction tracks which panel is visible (add / browse / stats)
-let currentAction = 'add';
 
 function switchType(type) {
   currentAddTab = type;
@@ -1044,6 +1043,10 @@ function switchAction(action) {
     document.getElementById(`panel${n.charAt(0).toUpperCase()+n.slice(1)}`).style.display = n === action ? 'block' : 'none';
     document.getElementById(`nav${n.charAt(0).toUpperCase()+n.slice(1)}`).classList.toggle('active', n === action);
   });
+  if (action === 'add') {
+    document.getElementById('addVinyl').style.display = currentAddTab === 'vinyl' ? 'block' : 'none';
+    document.getElementById('addBooks').style.display = currentAddTab === 'books' ? 'block' : 'none';
+  }
   if (!vaultHandle) {
     document.getElementById('onboardingCard').style.display = action === 'add' ? 'block' : 'none';
   }
