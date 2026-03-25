@@ -134,7 +134,7 @@ body {
 /* ── MAIN NAV (type selector: vinyl / books) ── */
 .main-nav {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -836,6 +836,7 @@ select.det-input { cursor: pointer; }
 <nav class="main-nav">
   <button class="nav-btn active" id="navVinyl" onclick="switchType('vinyl')">⬤ vinyl</button>
   <button class="nav-btn" id="navBooks" onclick="switchType('books')">⬤ books</button>
+  <button class="nav-btn" id="navArt" onclick="switchType('art')">⬤ art</button>
 </nav>
 
 <!-- ACTION NAV: add / browse / stats -->
@@ -975,6 +976,10 @@ let recentEntries = JSON.parse(localStorage.getItem('ledger_recent') || '[]');
 // Collection caches
 let vinylCollection = [];
 let booksCollection = [];
+let artworkCollection = [];
+let artworkDirHandle = null;
+let artworkIndex = [];
+let localImageCache = {};
 let currentBrowseType = 'vinyl';
 let currentStatsType = 'vinyl';
 let currentAddTab = 'vinyl';
@@ -1018,7 +1023,9 @@ function disconnectVault() {
   vaultHandle = null;
   vinylCollection = [];
   booksCollection = [];
-  browseCache = { vinyl: null, books: null };
+  artworkCollection = [];
+  localImageCache = {};
+  browseCache = { vinyl: null, books: null, art: null };
   updateVaultUI();
 }
 
@@ -1081,16 +1088,19 @@ async function loadCollections() {
   if (!vaultHandle) return;
   try {
     const refs = await vaultHandle.getDirectoryHandle('References', { create: false });
-    try { vinylDirHandle = await refs.getDirectoryHandle('Vinyl', { create: false }); } catch(e) { vinylDirHandle = null; }
-    try { booksDirHandle = await refs.getDirectoryHandle('Books', { create: false }); } catch(e) { booksDirHandle = null; }
+    try { vinylDirHandle   = await refs.getDirectoryHandle('Vinyl',   { create: false }); } catch(e) { vinylDirHandle   = null; }
+    try { booksDirHandle   = await refs.getDirectoryHandle('Books',   { create: false }); } catch(e) { booksDirHandle   = null; }
+    try { artworkDirHandle = await refs.getDirectoryHandle('Artwork',  { create: false }); } catch(e) { artworkDirHandle = null; }
 
-    // Build lightweight index: read only first ~300 chars of each file to get artist/author
-    vinylIndex = await buildIndex(vinylDirHandle, 'artist');
-    booksIndex = await buildIndex(booksDirHandle, 'author');
+    vinylIndex   = await buildIndex(vinylDirHandle,   'artist');
+    booksIndex   = await buildIndex(booksDirHandle,   'author');
+    artworkIndex = await buildIndex(artworkDirHandle, 'artist');
 
     vinylCollection = [];
     booksCollection = [];
-    browseCache = { vinyl: null, books: null };
+    artworkCollection = [];
+    localImageCache = {};
+    browseCache = { vinyl: null, books: null, art: null };
     renderBrowse();
     renderStats();
   } catch(e) { /* no References folder yet */ }
@@ -1192,9 +1202,11 @@ function parseFrontmatter(text) {
     }
   }
 
-  // Extract cover image from body
+  // Extract cover image from body (HTTP URL or local Obsidian embed)
   const coverMatch = text.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
   if (coverMatch) result._cover = coverMatch[1];
+  const localMatch = text.match(/!\[\[([^\]]+\.(jpg|jpeg|png|webp|gif))\]\]/i);
+  if (localMatch) result._localImage = localMatch[1];
 
   return result;
 }
@@ -1209,6 +1221,13 @@ function switchType(type) {
   currentStatsType = type;
   document.getElementById('navVinyl').classList.toggle('active', type === 'vinyl');
   document.getElementById('navBooks').classList.toggle('active', type === 'books');
+  document.getElementById('navArt').classList.toggle('active', type === 'art');
+  document.getElementById('browseSearch').placeholder =
+    type === 'vinyl' ? 'search by title or artist...' :
+    type === 'books' ? 'search by title or author...' :
+                       'search by title or artist...';
+  // Art has no add flow — redirect to browse
+  if (type === 'art' && currentAction === 'add') switchAction('browse');
   // Refresh active panel for the new type
   if (currentAction === 'add') {
     document.getElementById('addVinyl').style.display = type === 'vinyl' ? 'block' : 'none';
@@ -1253,7 +1272,7 @@ function switchAction(action) {
 // ════════════════════════════════════════════
 
 // Full parsed collection cache for browse (loaded on demand)
-let browseCache = { vinyl: null, books: null };
+let browseCache = { vinyl: null, books: null, art: null };
 
 function renderBrowse() {
   filterCollection();
@@ -1275,21 +1294,25 @@ function setFilter(key, value) {
 }
 
 function renderFilterBar() {
-  const isVinyl = currentBrowseType === 'vinyl';
-  const collection = isVinyl ? browseCache.vinyl : browseCache.books;
+  const type = currentBrowseType;
+  const collection = browseCache[type === 'art' ? 'art' : type];
   const bar = document.getElementById('filterBar');
   if (!collection || collection.length === 0) { bar.innerHTML = ''; return; }
 
-  const groups = isVinyl
-    ? [
-        { key: 'genre', label: 'all genres' },
-        { key: 'color', label: 'all colors' },
-        { key: 'year', label: 'all decades', decade: true },
-      ]
-    : [
-        { key: 'status', label: 'all statuses' },
-        { key: 'genre', label: 'all genres' },
-      ];
+  const groups =
+    type === 'vinyl' ? [
+      { key: 'genre',  label: 'all genres' },
+      { key: 'color',  label: 'all colors' },
+      { key: 'year',   label: 'all decades', decade: true },
+    ] :
+    type === 'books' ? [
+      { key: 'status', label: 'all statuses' },
+      { key: 'genre',  label: 'all genres' },
+    ] : [
+      { key: 'medium', label: 'all mediums' },
+      { key: 'artist', label: 'all artists' },
+      { key: 'year',   label: 'all decades', decade: true },
+    ];
 
   // Helper: filter collection by all active filters EXCEPT one key
   function collectionWithout(excludeKey) {
@@ -1342,8 +1365,9 @@ function renderFilterBar() {
 }
 
 function renderGrid() {
-  const isVinyl = currentBrowseType === 'vinyl';
-  const collection = isVinyl ? browseCache.vinyl : browseCache.books;
+  const type = currentBrowseType;
+  const cacheKey = type === 'art' ? 'art' : type;
+  const collection = browseCache[cacheKey];
   const grid = document.getElementById('collectionGrid');
   const countEl = document.getElementById('browseCount');
   const q = document.getElementById('browseSearch').value.trim().toLowerCase();
@@ -1354,7 +1378,7 @@ function renderGrid() {
 
   // Text search
   if (q) {
-    const field = isVinyl ? 'artist' : 'author';
+    const field = type === 'books' ? 'author' : 'artist';
     items = items.filter(item => {
       const title = (item.title || item.filename || '').toLowerCase();
       const person = Array.isArray(item[field])
@@ -1378,7 +1402,7 @@ function renderGrid() {
     });
   }
 
-  const label = isVinyl ? 'records' : 'books';
+  const label = type === 'vinyl' ? 'records' : type === 'books' ? 'books' : 'pieces';
   countEl.textContent = `${items.length} of ${collection.length} ${label}`;
 
   if (items.length === 0) {
@@ -1386,16 +1410,21 @@ function renderGrid() {
     return;
   }
 
-  grid.innerHTML = items.map(item => isVinyl ? renderVinylCard(item) : renderBookCard(item)).join('');
+  grid.innerHTML = items.map(item =>
+    type === 'vinyl' ? renderVinylCard(item) :
+    type === 'books' ? renderBookCard(item) :
+                       renderArtworkCard(item)
+  ).join('');
 }
 
 async function filterCollection() {
-  const isVinyl = currentBrowseType === 'vinyl';
-  const dirHandle = isVinyl ? vinylDirHandle : booksDirHandle;
-  const cacheKey = isVinyl ? 'vinyl' : 'books';
-  const grid = document.getElementById('collectionGrid');
-  const countEl = document.getElementById('browseCount');
-  const label = isVinyl ? 'records' : 'books';
+  const type      = currentBrowseType;
+  const isArt     = type === 'art';
+  const dirHandle = type === 'vinyl' ? vinylDirHandle : type === 'books' ? booksDirHandle : artworkDirHandle;
+  const cacheKey  = isArt ? 'art' : type;
+  const label     = type === 'vinyl' ? 'records' : type === 'books' ? 'books' : 'pieces';
+  const grid      = document.getElementById('collectionGrid');
+  const countEl   = document.getElementById('browseCount');
 
   if (!vaultHandle) {
     countEl.textContent = '';
@@ -1417,7 +1446,11 @@ async function filterCollection() {
   if (!browseCache[cacheKey]) {
     grid.innerHTML = `<div class="browse-empty"><span class="spinner"></span> loading ${label}...</div>`;
     countEl.textContent = '';
-    browseCache[cacheKey] = await readAllMdFiles(dirHandle);
+    if (isArt) {
+      browseCache.art = await readArtworkFiles(dirHandle);
+    } else {
+      browseCache[cacheKey] = await readAllMdFiles(dirHandle);
+    }
   }
 
   renderFilterBar();
@@ -1469,6 +1502,25 @@ function renderBookCard(item) {
   </div>`;
 }
 
+function renderArtworkCard(item) {
+  const title   = item.title || item.filename?.replace('.md','') || '—';
+  const artist  = Array.isArray(item.artist) ? item.artist[0] : (item.artist || '—');
+  const year    = item.year || '';
+  const mediums = Array.isArray(item.medium) ? item.medium.slice(0,2) : (item.medium ? [item.medium] : []);
+  const cover   = item._cover || '';
+
+  return `<div class="coll-card" data-filename="${item.filename}">
+    ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder" style="font-size:28px">🎨</div>`}
+    <div class="coll-info">
+      <div class="coll-title">${title}</div>
+      <div class="coll-sub">${artist}${year ? ' · ' + year : ''}</div>
+      <div class="coll-tags">
+        ${mediums.map(m => `<span class="coll-tag amber">${m}</span>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
 // ════════════════════════════════════════════
 // STATS
 // ════════════════════════════════════════════
@@ -1487,11 +1539,16 @@ async function renderStats() {
   if (booksCollection.length === 0 && booksDirHandle) {
     booksCollection = await readAllMdFiles(booksDirHandle);
   }
+  if (artworkCollection.length === 0 && artworkDirHandle) {
+    artworkCollection = await readArtworkFiles(artworkDirHandle);
+  }
 
   if (currentStatsType === 'vinyl') {
     el.innerHTML = renderVinylStats();
-  } else {
+  } else if (currentStatsType === 'books') {
     el.innerHTML = renderBookStats();
+  } else {
+    el.innerHTML = renderArtworkStats();
   }
 }
 
@@ -1516,6 +1573,152 @@ async function readAllMdFiles(dirHandle) {
     results.forEach(r => r && items.push(r));
   }
   return items;
+}
+
+async function resolveLocalImage(filename) {
+  if (localImageCache[filename]) return localImageCache[filename];
+  const searchDirs = [
+    async () => { const fh = await artworkDirHandle.getFileHandle(filename); return fh.getFile(); },
+    async () => { const fh = await vaultHandle.getFileHandle(filename); return fh.getFile(); },
+    async () => { const d = await vaultHandle.getDirectoryHandle('attachments', { create: false }); const fh = await d.getFileHandle(filename); return fh.getFile(); },
+  ];
+  for (const tryDir of searchDirs) {
+    try {
+      const file = await tryDir();
+      const url = URL.createObjectURL(file);
+      localImageCache[filename] = url;
+      return url;
+    } catch(e) {}
+  }
+  return null;
+}
+
+async function readArtworkFiles(dirHandle) {
+  if (!dirHandle) return [];
+  const handles = [];
+  for await (const [name, handle] of dirHandle.entries()) {
+    if (handle.kind === 'file' && name.endsWith('.md')) handles.push({ name, handle });
+  }
+  const BATCH = 40;
+  const items = [];
+  for (let i = 0; i < handles.length; i += BATCH) {
+    const batch = handles.slice(i, i + BATCH);
+    const results = await Promise.all(batch.map(async ({ name, handle }) => {
+      try {
+        const file = await handle.getFile();
+        const text = await file.text();
+        const fm = parseFrontmatter(text);
+        if (!fm) return null;
+        const item = { filename: name, title: name.replace('.md',''), ...fm };
+        // Try to resolve local image to a blob URL
+        if (!item._cover && item._localImage) {
+          item._cover = await resolveLocalImage(item._localImage);
+        }
+        return item;
+      } catch(e) { return null; }
+    }));
+    results.forEach(r => r && items.push(r));
+  }
+  return items;
+}
+
+function renderArtworkStats() {
+  const c = artworkCollection;
+  if (c.length === 0) return '<div class="stat-card"><div class="loading-row">no artwork found</div></div>';
+
+  // Medium breakdown
+  const mediumCounts = {};
+  c.forEach(item => {
+    const ms = Array.isArray(item.medium) ? item.medium : (item.medium ? [item.medium] : []);
+    ms.forEach(m => { if(m) mediumCounts[m] = (mediumCounts[m]||0) + 1; });
+  });
+  const topMediums = Object.entries(mediumCounts).sort((a,b) => b[1]-a[1]);
+  const maxMedium  = topMediums[0]?.[1] || 1;
+
+  // Top artists
+  const artistCounts = {};
+  c.forEach(item => {
+    const a = Array.isArray(item.artist) ? item.artist[0] : item.artist;
+    if (a) artistCounts[a] = (artistCounts[a]||0) + 1;
+  });
+  const topArtists = Object.entries(artistCounts).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  const maxArtist  = topArtists[0]?.[1] || 1;
+
+  // By decade
+  const decadeCounts = {};
+  c.forEach(item => {
+    const y = parseInt(item.year);
+    if (y) { const d = Math.floor(y/10)*10+'s'; decadeCounts[d] = (decadeCounts[d]||0)+1; }
+  });
+  const decades = Object.entries(decadeCounts).sort((a,b) => parseInt(a[0])-parseInt(b[0]));
+  const maxDecade = decades[0] ? Math.max(...decades.map(([,n])=>n)) : 1;
+
+  // Gallery (all pieces with a resolved cover)
+  const gallery = c.filter(i => i._cover);
+
+  return `
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">total pieces</div>
+      <div class="stat-number">${c.length}</div>
+      <div class="stat-sublabel">in your collection</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">artists</div>
+      <div class="stat-number">${Object.keys(artistCounts).length}</div>
+      <div class="stat-sublabel">represented</div>
+    </div>
+
+    <div class="stat-card full">
+      <div class="stat-label">medium breakdown</div>
+      <div class="bar-chart">
+        ${topMediums.map(([m,n]) => `
+          <div class="bar-row">
+            <div class="bar-label">${m}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${Math.round(n/maxMedium*100)}%"></div></div>
+            <div class="bar-count">${n}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="stat-card full">
+      <div class="stat-label">pieces by artist</div>
+      <div class="bar-chart">
+        ${topArtists.map(([a,n]) => `
+          <div class="bar-row">
+            <div class="bar-label">${a}</div>
+            <div class="bar-track"><div class="bar-fill green" style="width:${Math.round(n/maxArtist*100)}%"></div></div>
+            <div class="bar-count">${n}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    ${decades.length > 0 ? `
+    <div class="stat-card full">
+      <div class="stat-label">pieces by decade</div>
+      <div class="bar-chart">
+        ${decades.map(([d,n]) => `
+          <div class="bar-row">
+            <div class="bar-label">${d}</div>
+            <div class="bar-track"><div class="bar-fill blue" style="width:${Math.round(n/maxDecade*100)}%"></div></div>
+            <div class="bar-count">${n}</div>
+          </div>`).join('')}
+      </div>
+    </div>` : ''}
+
+    ${gallery.length > 0 ? `
+    <div class="stat-card full">
+      <div class="stat-label">gallery <span style="opacity:0.45;font-size:10px;margin-left:6px">${gallery.length} of ${c.length} with images</span></div>
+      <div class="fav-grid">
+        ${gallery.map(item => `
+          <div class="fav-card" onclick="switchAction('browse');switchType('art');setTimeout(()=>openDetail('${item.filename}'),300)">
+            <img class="fav-cover" src="${item._cover}" alt="" loading="lazy">
+            <div class="fav-title">${item.title || item.filename?.replace('.md','')}</div>
+            <div class="fav-sub">${Array.isArray(item.artist) ? item.artist[0] : (item.artist||'—')}</div>
+          </div>`).join('')}
+      </div>
+    </div>` : ''}
+  </div>`;
 }
 
 function renderVinylStats() {
@@ -2240,15 +2443,16 @@ function extractBodySection(text, heading) {
 }
 
 async function openDetail(filename) {
-  const isVinyl = currentBrowseType === 'vinyl';
-  const cache   = isVinyl ? browseCache.vinyl : browseCache.books;
+  const type    = currentBrowseType;
+  const cacheKey = type === 'art' ? 'art' : type;
+  const cache   = browseCache[cacheKey];
   const item    = cache?.find(i => i.filename === filename);
   if (!item) return;
 
-  detailItem  = { ...item, _type: isVinyl ? 'vinyl' : 'books' };
+  detailItem   = { ...item, _type: type };
   detailRating = parseRating(item.rating) || 0;
 
-  const dirHandle = isVinyl ? vinylDirHandle : booksDirHandle;
+  const dirHandle = type === 'vinyl' ? vinylDirHandle : type === 'books' ? booksDirHandle : artworkDirHandle;
   try {
     const fh   = await dirHandle.getFileHandle(filename);
     const f    = await fh.getFile();
@@ -2273,7 +2477,9 @@ function setDetailRating(n) {
 
 function renderDetailPanel() {
   const item    = detailItem;
-  const isVinyl = item._type === 'vinyl';
+  const type    = item._type;
+  const isVinyl = type === 'vinyl';
+  const isArt   = type === 'art';
   const panel   = document.getElementById('detailContent');
   const text    = item._fullText || '';
 
@@ -2283,10 +2489,11 @@ function renderDetailPanel() {
     `<span class="det-star${i < detailRating ? ' lit' : ''}" onclick="setDetailRating(${i+1})">★</span>`
   ).join('');
 
-  const cache       = isVinyl ? browseCache.vinyl : browseCache.books;
-  const personField = isVinyl ? 'artist' : 'author';
+  const cacheKey    = isArt ? 'art' : type;
+  const cache       = browseCache[cacheKey] || [];
+  const personField = type === 'books' ? 'author' : 'artist';
   const myPersons   = Array.isArray(item[personField]) ? item[personField] : (item[personField] ? [item[personField]] : []);
-  const related     = (cache || []).filter(i => {
+  const related     = cache.filter(i => {
     if (i.filename === item.filename) return false;
     const ps = Array.isArray(i[personField]) ? i[personField] : (i[personField] ? [i[personField]] : []);
     return ps.some(p => myPersons.includes(p));
@@ -2395,13 +2602,37 @@ function renderDetailPanel() {
           ${relatedHtml}
         </div>
       </div>`;
+  } else if (isArt) {
+    const artist  = Array.isArray(item.artist) ? item.artist.join(', ') : (item.artist || '—');
+    const mediums = Array.isArray(item.medium) ? item.medium : (item.medium ? [item.medium] : []);
+
+    panel.innerHTML = `
+      <div class="det-layout">
+        <div class="det-left">
+          ${cover ? `<img class="det-cover" src="${cover}" alt="" style="border-radius:var(--radius)">` : `<div class="det-cover-ph" style="font-size:40px">🎨</div>`}
+          <div class="det-meta" style="margin-top:14px">
+            <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint)">${mediums.join(' · ')}</div>
+            ${item.created && item.created !== '{ date }' ? `<div style="font-size:9px;letter-spacing:0.1em;color:var(--faint);margin-top:4px">added ${item.created}</div>` : ''}
+          </div>
+        </div>
+        <div class="det-right">
+          <div class="det-title">${title}</div>
+          <div class="det-sub">${artist}${item.year ? ' · ' + item.year : ''}</div>
+          <div class="det-tags">
+            ${mediums.map(m => `<span class="coll-tag amber">${m}</span>`).join('')}
+          </div>
+          ${relatedHtml}
+        </div>
+      </div>`;
   }
 }
 
 async function saveDetail() {
   if (!detailItem || !vaultHandle) return;
-  const isVinyl   = detailItem._type === 'vinyl';
-  const dirHandle = isVinyl ? vinylDirHandle : booksDirHandle;
+  const type      = detailItem._type;
+  const isVinyl   = type === 'vinyl';
+  const dirHandle = type === 'vinyl' ? vinylDirHandle : type === 'books' ? booksDirHandle : artworkDirHandle;
+  if (type === 'art') { showToast('artwork is read-only', 'error'); return; }
 
   try {
     const fh  = await dirHandle.getFileHandle(detailItem.filename);
@@ -2432,8 +2663,7 @@ async function saveDetail() {
     await writeFile(dirHandle, detailItem.filename, text);
 
     // Bust cache so grid reflects any changes (status, color)
-    const cacheKey = isVinyl ? 'vinyl' : 'books';
-    browseCache[cacheKey] = null;
+    browseCache[type] = null;
     if (isVinyl) vinylCollection = []; else booksCollection = [];
     filterCollection();
 
