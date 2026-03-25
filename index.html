@@ -626,6 +626,186 @@ body {
   .pill-label { max-width: 100px; }
   .section { padding: 14px; }
 }
+
+/* ── DETAIL PANEL ──────────────────────────────── */
+.coll-card { cursor: pointer; }
+.coll-card:hover { border-color: var(--border2); transform: translateY(-1px); transition: all .15s; }
+
+.detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 200;
+  overflow-y: auto;
+  display: none;
+}
+.detail-overlay.open {
+  display: block;
+  animation: detFadeIn 0.18s ease;
+}
+@keyframes detFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.detail-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 16px 80px;
+}
+
+.det-back {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: 'Victor Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.det-back:hover { color: var(--amber); }
+
+.det-layout {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.det-cover { width: 100%; border-radius: var(--radius); display: block; }
+.det-cover-ph {
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--card);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  color: var(--faint);
+}
+
+.det-meta { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+
+.det-field label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 4px;
+}
+
+.det-input {
+  width: 100%;
+  background: var(--card2);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  color: var(--cream);
+  font-family: 'Victor Mono', monospace;
+  font-size: 10px;
+  padding: 5px 8px;
+}
+.det-input:focus { outline: none; border-color: var(--amber); }
+select.det-input { cursor: pointer; }
+
+.det-stars { display: flex; gap: 4px; margin-top: 2px; }
+.det-star { font-size: 18px; color: var(--faint); cursor: pointer; transition: color .12s; line-height: 1; }
+.det-star.lit { color: var(--amber); }
+.det-star:hover { color: var(--amber-dim); }
+
+.det-save { width: 100%; margin-top: 16px; font-size: 9px; padding: 9px; }
+
+.det-title {
+  font-family: 'Crimson Text', serif;
+  font-size: 22px;
+  line-height: 1.25;
+  margin-bottom: 4px;
+}
+.det-sub { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+.det-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+.det-tag-link { text-decoration: none; color: var(--blue) !important; }
+
+.det-section { margin-bottom: 24px; }
+.det-section-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.det-tracklist {
+  font-family: 'Victor Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.9;
+  white-space: pre-wrap;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.det-body-text { font-size: 12px; color: var(--muted); line-height: 1.7; }
+
+.det-notes {
+  width: 100%;
+  min-height: 90px;
+  background: var(--card2);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  color: var(--cream);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px;
+  padding: 10px;
+  resize: vertical;
+  line-height: 1.6;
+}
+.det-notes:focus { outline: none; border-color: var(--amber); }
+
+.det-related { display: flex; gap: 10px; flex-wrap: wrap; }
+.det-rel-item { width: 76px; cursor: pointer; }
+.det-rel-item img, .det-rel-ph {
+  width: 76px;
+  height: 76px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+  border: 1px solid var(--border);
+}
+.det-rel-ph {
+  background: var(--card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--faint);
+}
+.det-rel-item div {
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.det-rel-item:hover img, .det-rel-item:hover .det-rel-ph { border-color: var(--amber-dim); }
+
+@media (max-width: 560px) {
+  .det-layout { grid-template-columns: 1fr; }
+  .det-cover, .det-cover-ph { max-width: 180px; }
+}
 </style>
 </head>
 <body>
@@ -750,6 +930,13 @@ body {
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+
+<div class="detail-overlay" id="detailOverlay">
+  <div class="detail-inner">
+    <button class="det-back" onclick="closeDetail()">← back to collection</button>
+    <div id="detailContent"></div>
+  </div>
+</div>
 
 <footer class="tool-footer">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="24" height="24" aria-hidden="true">
@@ -1246,7 +1433,7 @@ function renderVinylCard(item) {
   const rating = item.rating ? '⭐'.repeat(parseRating(item.rating)) : '';
   const cover = item._cover || '';
 
-  return `<div class="coll-card">
+  return `<div class="coll-card" data-filename="${item.filename}">
     ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder">♪</div>`}
     <div class="coll-info">
       <div class="coll-title">${title}</div>
@@ -1269,7 +1456,7 @@ function renderBookCard(item) {
 
   const statusColor = status === 'Read' ? 'amber' : '';
 
-  return `<div class="coll-card">
+  return `<div class="coll-card" data-filename="${item.filename}">
     ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder">☰</div>`}
     <div class="coll-info">
       <div class="coll-title">${title}</div>
@@ -2038,6 +2225,245 @@ function showToast(msg, type='') {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
 }
+
+// ════════════════════════════════════════════
+// DETAIL PANEL
+// ════════════════════════════════════════════
+let detailItem  = null;
+let detailRating = 0;
+
+function extractBodySection(text, heading) {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`## ${escaped}\\n([\\s\\S]*?)(?=\\n---\\n|\\n## |$)`);
+  const m = text.match(re);
+  return m ? m[1].trim() : '';
+}
+
+async function openDetail(filename) {
+  const isVinyl = currentBrowseType === 'vinyl';
+  const cache   = isVinyl ? browseCache.vinyl : browseCache.books;
+  const item    = cache?.find(i => i.filename === filename);
+  if (!item) return;
+
+  detailItem  = { ...item, _type: isVinyl ? 'vinyl' : 'books' };
+  detailRating = parseRating(item.rating) || 0;
+
+  const dirHandle = isVinyl ? vinylDirHandle : booksDirHandle;
+  try {
+    const fh   = await dirHandle.getFileHandle(filename);
+    const f    = await fh.getFile();
+    detailItem._fullText = await f.text();
+  } catch(e) { detailItem._fullText = ''; }
+
+  renderDetailPanel();
+  const overlay = document.getElementById('detailOverlay');
+  overlay.classList.add('open');
+  overlay.scrollTop = 0;
+}
+
+function closeDetail() {
+  document.getElementById('detailOverlay').classList.remove('open');
+  detailItem = null;
+}
+
+function setDetailRating(n) {
+  detailRating = detailRating === n ? 0 : n;
+  document.querySelectorAll('.det-star').forEach((s, i) => s.classList.toggle('lit', i < detailRating));
+}
+
+function renderDetailPanel() {
+  const item    = detailItem;
+  const isVinyl = item._type === 'vinyl';
+  const panel   = document.getElementById('detailContent');
+  const text    = item._fullText || '';
+
+  const cover = item._cover || '';
+  const title = item.title || item.filename?.replace('.md','') || '—';
+  const starsHtml = Array.from({length:5}, (_,i) =>
+    `<span class="det-star${i < detailRating ? ' lit' : ''}" onclick="setDetailRating(${i+1})">★</span>`
+  ).join('');
+
+  const cache       = isVinyl ? browseCache.vinyl : browseCache.books;
+  const personField = isVinyl ? 'artist' : 'author';
+  const myPersons   = Array.isArray(item[personField]) ? item[personField] : (item[personField] ? [item[personField]] : []);
+  const related     = (cache || []).filter(i => {
+    if (i.filename === item.filename) return false;
+    const ps = Array.isArray(i[personField]) ? i[personField] : (i[personField] ? [i[personField]] : []);
+    return ps.some(p => myPersons.includes(p));
+  }).slice(0, 8);
+
+  const relatedHtml = related.length ? `
+    <div class="det-section">
+      <div class="det-section-label">more by ${myPersons[0] || (isVinyl ? 'this artist' : 'this author')}</div>
+      <div class="det-related">
+        ${related.map(r => `
+          <div class="det-rel-item" onclick="openDetail('${r.filename}')">
+            ${r._cover ? `<img src="${r._cover}" alt="" loading="lazy">` : `<div class="det-rel-ph">${isVinyl?'♪':'☰'}</div>`}
+            <div>${r.title || r.filename}</div>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  if (isVinyl) {
+    const artist   = Array.isArray(item.artist) ? item.artist.join(', ') : (item.artist || '—');
+    const genres   = Array.isArray(item.genre)  ? item.genre  : (item.genre  ? [item.genre]  : []);
+    const styles   = Array.isArray(item.styles) ? item.styles : (item.styles ? [item.styles] : []);
+    const tracklist    = extractBodySection(text, 'Tracklist');
+    const discogsNotes = extractBodySection(text, 'Notes from Discogs');
+
+    panel.innerHTML = `
+      <div class="det-layout">
+        <div class="det-left">
+          ${cover ? `<img class="det-cover" src="${cover}" alt="">` : `<div class="det-cover-ph">♪</div>`}
+          <div class="det-meta">
+            <div class="det-field">
+              <label>Color</label>
+              <input id="detColor" class="det-input" value="${item.color || ''}" placeholder="vinyl color">
+            </div>
+            <div class="det-field">
+              <label>Rating</label>
+              <div class="det-stars">${starsHtml}</div>
+            </div>
+          </div>
+          <button class="btn-save det-save" onclick="saveDetail()">save changes</button>
+        </div>
+        <div class="det-right">
+          <div class="det-title">${title}</div>
+          <div class="det-sub">${artist}${item.year ? ' · ' + item.year : ''}</div>
+          <div class="det-tags">
+            ${genres.map(g => `<span class="coll-tag amber">${g}</span>`).join('')}
+            ${styles.map(s => `<span class="coll-tag">${s}</span>`).join('')}
+            ${item.master_id ? `<a href="https://www.discogs.com/master/${item.master_id}" target="_blank" class="coll-tag det-tag-link">discogs ↗</a>` : ''}
+          </div>
+          ${tracklist ? `<div class="det-section"><div class="det-section-label">tracklist</div><pre class="det-tracklist">${tracklist}</pre></div>` : ''}
+          ${discogsNotes ? `<div class="det-section"><div class="det-section-label">notes from discogs</div><div class="det-body-text">${discogsNotes}</div></div>` : ''}
+          ${relatedHtml}
+        </div>
+      </div>`;
+  } else {
+    const author   = Array.isArray(item.author) ? item.author.join(', ') : (item.author || '—');
+    const synopsis = extractBodySection(text, 'Synopsis');
+    const rawNotes = extractBodySection(text, 'My Notes');
+    const cleanNotes = rawNotes.replace(/\n*\*\*Rating:.*$/m, '').replace(/^_No notes yet\._$/, '').trim();
+
+    panel.innerHTML = `
+      <div class="det-layout">
+        <div class="det-left">
+          ${cover ? `<img class="det-cover" src="${cover}" alt="">` : `<div class="det-cover-ph">☰</div>`}
+          <div class="det-meta">
+            <div class="det-field">
+              <label>Status</label>
+              <select id="detStatus" class="det-input">
+                ${['Want to Read','Reading','Read','Did Not Finish'].map(s =>
+                  `<option${item.status===s?' selected':''}>${s}</option>`).join('')}
+              </select>
+            </div>
+            <div class="det-field">
+              <label>Format</label>
+              <select id="detForm" class="det-input">
+                ${['Physical','Audiobook','Kindle','PDF','Other'].map(f =>
+                  `<option${item.form===f?' selected':''}>${f}</option>`).join('')}
+              </select>
+            </div>
+            <div class="det-field">
+              <label>Started</label>
+              <input id="detStart" class="det-input" type="date" value="${item.start_date||''}">
+            </div>
+            <div class="det-field">
+              <label>Finished</label>
+              <input id="detEnd" class="det-input" type="date" value="${item.end_date||''}">
+            </div>
+            <div class="det-field">
+              <label>Rating</label>
+              <div class="det-stars">${starsHtml}</div>
+            </div>
+          </div>
+          <button class="btn-save det-save" onclick="saveDetail()">save changes</button>
+        </div>
+        <div class="det-right">
+          <div class="det-title">${title}</div>
+          <div class="det-sub">${author}${item.year ? ' · ' + item.year : ''}</div>
+          <div class="det-tags">
+            ${item.pages ? `<span class="coll-tag">${item.pages} pages</span>` : ''}
+            ${item.publisher ? `<span class="coll-tag">${item.publisher}</span>` : ''}
+          </div>
+          ${synopsis ? `<div class="det-section"><div class="det-section-label">synopsis</div><div class="det-body-text">${synopsis}</div></div>` : ''}
+          <div class="det-section">
+            <div class="det-section-label">my notes</div>
+            <textarea id="detNotes" class="det-notes" placeholder="add your notes...">${cleanNotes}</textarea>
+          </div>
+          ${relatedHtml}
+        </div>
+      </div>`;
+  }
+}
+
+async function saveDetail() {
+  if (!detailItem || !vaultHandle) return;
+  const isVinyl   = detailItem._type === 'vinyl';
+  const dirHandle = isVinyl ? vinylDirHandle : booksDirHandle;
+
+  try {
+    const fh  = await dirHandle.getFileHandle(detailItem.filename);
+    const f   = await fh.getFile();
+    let text  = (await f.text()).replace(/\r\n/g, '\n');
+
+    // Update rating in frontmatter
+    text = text.replace(/^rating: .*$/m, `rating: ${detailRating || ''}`);
+
+    if (isVinyl) {
+      const color = document.getElementById('detColor').value.trim();
+      text = text.replace(/^color: ".*?"$/m, `color: "${color}"`);
+    } else {
+      const status = document.getElementById('detStatus').value;
+      const form   = document.getElementById('detForm').value;
+      const start  = document.getElementById('detStart').value;
+      const end    = document.getElementById('detEnd').value;
+      text = text.replace(/^status: ".*?"$/m,     `status: "${status}"`);
+      text = text.replace(/^form: ".*?"$/m,        `form: "${form}"`);
+      text = text.replace(/^start_date: ".*?"$/m,  `start_date: "${start}"`);
+      text = text.replace(/^end_date: ".*?"$/m,    `end_date: "${end}"`);
+
+      // Replace My Notes body section (up to next ---)
+      const notes = document.getElementById('detNotes').value.trim() || '_No notes yet._';
+      text = text.replace(/## My Notes\n[\s\S]*?\n---/, `## My Notes\n${notes}\n\n---`);
+    }
+
+    await writeFile(dirHandle, detailItem.filename, text);
+
+    // Bust cache so grid reflects any changes (status, color)
+    const cacheKey = isVinyl ? 'vinyl' : 'books';
+    browseCache[cacheKey] = null;
+    if (isVinyl) vinylCollection = []; else booksCollection = [];
+    filterCollection();
+
+    // Update in-memory item and re-render panel
+    detailItem._fullText = text;
+    detailItem.rating = detailRating;
+    if (isVinyl) {
+      detailItem.color = document.getElementById('detColor')?.value.trim();
+    } else {
+      detailItem.status     = document.getElementById('detStatus')?.value;
+      detailItem.form       = document.getElementById('detForm')?.value;
+      detailItem.start_date = document.getElementById('detStart')?.value;
+      detailItem.end_date   = document.getElementById('detEnd')?.value;
+    }
+
+    showToast('saved ✓', 'success');
+    renderDetailPanel();
+  } catch(e) { showToast('save failed', 'error'); console.error(e); }
+}
+
+// Event delegation — single listener for all card clicks
+document.getElementById('collectionGrid').addEventListener('click', e => {
+  const card = e.target.closest('[data-filename]');
+  if (card) openDetail(card.dataset.filename);
+});
+
+// Close on Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('detailOverlay').classList.contains('open')) closeDetail();
+});
 </script>
 </body>
 </html>
