@@ -900,6 +900,32 @@ select.det-input { cursor: pointer; }
     <div id="bConfirm"></div>
   </div>
 
+  <!-- ART ADD -->
+  <div id="addArt" style="display:none">
+    <div class="section">
+      <div class="section-label">add artwork</div>
+
+      <div class="field" style="flex-direction:column;gap:6px">
+        <label>Photo</label>
+        <label id="artPhotoLabel" style="display:flex;align-items:center;gap:10px;cursor:pointer;border:1px dashed var(--border2);border-radius:var(--radius);padding:10px 14px;background:var(--bg2);font-size:11px;color:var(--muted)">
+          <span id="artPhotoText">choose image...</span>
+          <input type="file" id="artPhotoInput" accept="image/*" style="display:none" onchange="artPhotoChosen(this)">
+        </label>
+        <img id="artPhotoPreview" style="display:none;max-height:160px;border-radius:var(--radius);object-fit:contain;align-self:flex-start" alt="">
+      </div>
+
+      <div class="field"><label>Title</label><input type="text" id="artTitle" placeholder="e.g. Untitled No. 4" /></div>
+      <div class="field"><label>Artist</label><input type="text" id="artArtist" placeholder="e.g. Edward Hopper" /></div>
+      <div class="field"><label>Year</label><input type="text" id="artYear" placeholder="e.g. 1942" /></div>
+      <div class="field" style="flex-direction:column;gap:4px">
+        <label>Mediums <span style="color:var(--faint);font-size:9px">comma-separated</span></label>
+        <input type="text" id="artMedium" placeholder="e.g. oil on canvas, watercolor" />
+      </div>
+      <button class="btn-search" id="artSaveBtn" onclick="saveArtwork()">+ save to vault</button>
+    </div>
+    <div id="artConfirm"></div>
+  </div>
+
   <!-- RECENT -->
   <div id="recentSection" style="display:none">
     <div class="recent-label">recent entries</div>
@@ -1226,12 +1252,10 @@ function switchType(type) {
     type === 'vinyl' ? 'search by title or artist...' :
     type === 'books' ? 'search by title or author...' :
                        'search by title or artist...';
-  // Art has no add flow — redirect to browse
-  if (type === 'art' && currentAction === 'add') switchAction('browse');
-  // Refresh active panel for the new type
   if (currentAction === 'add') {
     document.getElementById('addVinyl').style.display = type === 'vinyl' ? 'block' : 'none';
     document.getElementById('addBooks').style.display = type === 'books' ? 'block' : 'none';
+    document.getElementById('addArt').style.display   = type === 'art'   ? 'block' : 'none';
   }
   if (currentAction === 'browse') {
     document.getElementById('browseSearch').value = '';
@@ -1252,6 +1276,7 @@ function switchAction(action) {
   if (action === 'add') {
     document.getElementById('addVinyl').style.display = currentAddTab === 'vinyl' ? 'block' : 'none';
     document.getElementById('addBooks').style.display = currentAddTab === 'books' ? 'block' : 'none';
+    document.getElementById('addArt').style.display   = currentAddTab === 'art'   ? 'block' : 'none';
   }
   if (!vaultHandle) {
     document.getElementById('onboardingCard').style.display = action === 'add' ? 'block' : 'none';
@@ -2391,6 +2416,128 @@ function resetBookForm() {
 }
 
 // ════════════════════════════════════════════
+// ARTWORK ADD
+// ════════════════════════════════════════════
+let artPhotoFile = null;
+
+function artPhotoChosen(input) {
+  artPhotoFile = input.files[0] || null;
+  const label = document.getElementById('artPhotoText');
+  const preview = document.getElementById('artPhotoPreview');
+  if (artPhotoFile) {
+    label.textContent = artPhotoFile.name;
+    preview.src = URL.createObjectURL(artPhotoFile);
+    preview.style.display = 'block';
+    // Pre-fill title if empty
+    const titleInput = document.getElementById('artTitle');
+    if (!titleInput.value.trim()) {
+      titleInput.value = artPhotoFile.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+    }
+  } else {
+    label.textContent = 'choose image...';
+    preview.style.display = 'none';
+    preview.src = '';
+  }
+}
+
+async function saveArtwork() {
+  if (!vaultHandle) { showToast('connect your vault first', 'error'); return; }
+  if (!artPhotoFile) { showToast('choose a photo first', 'error'); return; }
+
+  const title  = document.getElementById('artTitle').value.trim();
+  const artist = document.getElementById('artArtist').value.trim();
+  const year   = document.getElementById('artYear').value.trim();
+  const mediumRaw = document.getElementById('artMedium').value.trim();
+  const mediums = mediumRaw ? mediumRaw.split(',').map(m => m.trim()).filter(Boolean) : [];
+
+  if (!title) { showToast('title is required', 'error'); return; }
+
+  const sanitize = s => (s || '').replace(/[\\/:*?"<>|]/g, '-');
+  const ext = artPhotoFile.name.match(/\.[^.]+$/)?.[0] || '.jpg';
+  const imageFilename = sanitize(title) + ext;
+  const mdFilename = sanitize(title) + '.md';
+  const createdDate = new Date().toISOString().slice(0, 10);
+
+  const mediumYaml = mediums.length
+    ? 'medium:\n' + mediums.map(m => `  - "${m}"`).join('\n')
+    : 'medium: null';
+  const artistYaml = artist
+    ? `artist:\n  - "[[${artist}]]"` : 'artist: null';
+
+  const content = `---
+category: "[[Artwork]]"
+tags:
+  - artwork
+${artistYaml}
+title: "${title.replace(/"/g, "'")}"
+year: "${year}"
+${mediumYaml}
+created: ${createdDate}
+---
+
+![[${imageFilename}]]
+`;
+
+  const btn = document.getElementById('artSaveBtn');
+  btn.disabled = true;
+  btn.textContent = 'saving...';
+
+  try {
+    const refs = await getOrCreateFolder(vaultHandle, 'References');
+    const artworkFolder = await getOrCreateFolder(refs, 'Artwork');
+
+    // Copy image file into Artwork folder
+    const imgFh = await artworkFolder.getFileHandle(imageFilename, { create: true });
+    const writable = await imgFh.createWritable();
+    await writable.write(artPhotoFile);
+    await writable.close();
+
+    // Write markdown
+    await writeFile(artworkFolder, mdFilename, content);
+
+    // Artist stub
+    if (artist) {
+      const artistsFolder = await getOrCreateFolder(artworkFolder, 'Artists');
+      const artistFilename = sanitize(artist) + '.md';
+      try { await artistsFolder.getFileHandle(artistFilename); }
+      catch(e) {
+        await writeFile(artistsFolder, artistFilename,
+          `---\ncategory: "[[Artists]]"\ntags:\n  - artist\nname: "${artist}"\ncreated: ${createdDate}\n---\n\n# ${artist}\n`);
+      }
+    }
+
+    browseCache.art = null;
+    artworkCollection = [];
+    addRecent({ type: 'art', title, sub: artist || '—', cover: URL.createObjectURL(artPhotoFile) });
+    showToast(`saved: ${title}`, 'success');
+    resetArtworkForm();
+    document.getElementById('artConfirm').innerHTML = `
+      <div class="section" style="border-color:var(--border2)">
+        <div style="font-size:11px;color:var(--green);margin-bottom:8px">✓ ${title} saved to vault</div>
+        <button class="btn-sm" onclick="switchAction('browse');switchType('art')">browse artwork →</button>
+      </div>`;
+  } catch(e) {
+    showToast('save failed — check vault permissions', 'error');
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '+ save to vault';
+  }
+}
+
+function resetArtworkForm() {
+  document.getElementById('artTitle').value = '';
+  document.getElementById('artArtist').value = '';
+  document.getElementById('artYear').value = '';
+  document.getElementById('artMedium').value = '';
+  document.getElementById('artPhotoInput').value = '';
+  document.getElementById('artPhotoText').textContent = 'choose image...';
+  document.getElementById('artPhotoPreview').style.display = 'none';
+  document.getElementById('artPhotoPreview').src = '';
+  artPhotoFile = null;
+}
+
+// ════════════════════════════════════════════
 // RECENT
 // ════════════════════════════════════════════
 function addRecent(entry) {
@@ -2547,7 +2694,7 @@ function renderDetailPanel() {
           ${relatedHtml}
         </div>
       </div>`;
-  } else {
+  } else if (!isArt) {
     const author   = Array.isArray(item.author) ? item.author.join(', ') : (item.author || '—');
     const synopsis = extractBodySection(text, 'Synopsis');
     const rawNotes = extractBodySection(text, 'My Notes');
