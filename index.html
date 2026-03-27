@@ -807,6 +807,7 @@ select.det-input { cursor: pointer; }
   .det-cover, .det-cover-ph { max-width: 180px; }
 }
 </style>
+<script src="https://accounts.google.com/gsi/client" async></script>
 </head>
 <body>
 
@@ -817,13 +818,14 @@ select.det-input { cursor: pointer; }
     <div class="wordmark">the <em>ledger</em></div>
   </div>
   <div class="vault-status">
-    <div id="vaultOut">
-      <button class="btn-sm" id="btnConnect">connect vault</button>
+    <div id="vaultOut" style="display:flex;gap:8px;align-items:center">
+      <button class="btn-sm" onclick="connectLocalVault()">local folder</button>
+      <button class="btn-sm" onclick="signInGoogle()">google drive</button>
     </div>
     <div class="identity-pill" id="vaultIn" style="display:none">
       <div class="pill-dot" id="pillDot"></div>
       <span class="pill-label" id="vaultName">—</span>
-      <button class="btn-sm" onclick="disconnectVault()">change</button>
+      <button class="btn-sm" onclick="disconnectVault()">disconnect</button>
     </div>
   </div>
 </header>
@@ -851,19 +853,34 @@ select.det-input { cursor: pointer; }
 
   <!-- ONBOARDING (shown until vault connected) -->
   <div id="onboardingCard" class="section" style="display:none">
-    <div class="section-label">getting started</div>
-    <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">
-      The Ledger reads from an <strong style="color:var(--cream)">Obsidian vault</strong> on your device.
-      Vinyl records and books are stored as markdown files in <code style="color:var(--amber);font-family:var(--mono,monospace)">Vault/Vinyl/</code>
-      and <code style="color:var(--amber);font-family:var(--mono,monospace)">Vault/Books/</code>.
-    </p>
-    <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">
-      Connect your vault folder above to begin browsing or adding entries. Your files stay on your device — nothing is uploaded.
-    </p>
-    <div style="font-size:11px;color:var(--faint);border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
-      No vault yet? Create a folder with <code style="color:var(--amber)">Vinyl/</code> and <code style="color:var(--amber)">Books/</code> subfolders anywhere on your device.
+    <div class="section-label">connect your vault</div>
+
+    <div id="setupOptions">
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:16px">
+        The Ledger stores vinyl, books, and artwork as markdown files in your vault.
+        Connect a local folder on this device, or use Google Drive to access your collection from anywhere.
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn-sm" onclick="connectLocalVault()" style="padding:9px 16px">local folder</button>
+        <button class="btn-sm" onclick="signInGoogle()" style="padding:9px 16px">google drive</button>
+      </div>
     </div>
-    <div id="discogsTokenWrap" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+
+    <div id="reconnectRow" style="display:none;margin-top:16px">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Re-grant access to your vault folder.</p>
+      <button class="btn-sm" onclick="reconnectVault()">reconnect vault</button>
+    </div>
+
+    <div id="vaultPathRow" style="display:none;margin-top:16px">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Signed in. Enter the name of your vault folder in Google Drive.</p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="input" id="vaultPathInput" placeholder="e.g. MyVault"
+          style="flex:1;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--cream);font-family:inherit;font-size:12px;padding:7px 10px;outline:none">
+        <button class="btn-sm" onclick="confirmVaultPath()">connect</button>
+      </div>
+    </div>
+
+    <div id="discogsTokenWrap" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
       <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Discogs token</div>
       <div style="display:flex;gap:8px">
         <input type="password" id="discogsTokenInput" placeholder="paste your Discogs personal access token"
@@ -987,6 +1004,280 @@ select.det-input { cursor: pointer; }
 </footer>
 
 <script>
+// ── STOULT MODULE ────────────────────────────────────────────────────────────
+const STOULT = (() => {
+  'use strict';
+  const DRIVE = 'https://www.googleapis.com/drive/v3';
+  const IDB_DB = 'stoult', IDB_STORE = 'handles', IDB_KEY = 'vault';
+  const GTOKEN_KEY = 'stoult_gtoken', GTOKEN_EXP_KEY = 'stoult_gtoken_exp', GUSER_KEY = 'stoult_guser';
+  let _tokenClient = null, _token = null, _tokenExp = 0, _user = null;
+
+  async function initGoogle(clientId) {
+    if (!window.google?.accounts?.oauth2) return false;
+    _tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'https://www.googleapis.com/auth/drive email profile openid',
+      callback: () => {},
+    });
+    const storedToken = localStorage.getItem(GTOKEN_KEY);
+    const storedExp   = parseInt(localStorage.getItem(GTOKEN_EXP_KEY) || '0');
+    const storedUser  = localStorage.getItem(GUSER_KEY);
+    if (storedToken && storedExp > Date.now() + 60000 && storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      if (!parsedUser.email) {
+        localStorage.removeItem(GTOKEN_KEY); localStorage.removeItem(GTOKEN_EXP_KEY); localStorage.removeItem(GUSER_KEY);
+        return false;
+      }
+      _token = storedToken; _tokenExp = storedExp; _user = parsedUser;
+      return true;
+    }
+    return false;
+  }
+  function signIn() {
+    return new Promise((resolve, reject) => {
+      _tokenClient.callback = async (resp) => {
+        if (resp.error) { reject(new Error(resp.error)); return; }
+        _token = resp.access_token;
+        _tokenExp = Date.now() + (resp.expires_in || 3600) * 1000;
+        localStorage.setItem(GTOKEN_KEY, _token);
+        localStorage.setItem(GTOKEN_EXP_KEY, String(_tokenExp));
+        try {
+          const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${_token}` } });
+          _user = r.ok ? await r.json() : { name: 'Google User' };
+        } catch { _user = { name: 'Google User' }; }
+        localStorage.setItem(GUSER_KEY, JSON.stringify(_user));
+        resolve(_user);
+      };
+      _tokenClient.requestAccessToken();
+    });
+  }
+  function signOut() {
+    if (_token) { try { google.accounts.oauth2.revoke(_token, () => {}); } catch {} }
+    _token = null; _tokenExp = 0; _user = null;
+    localStorage.removeItem(GTOKEN_KEY); localStorage.removeItem(GTOKEN_EXP_KEY); localStorage.removeItem(GUSER_KEY);
+  }
+  function getUser() { return _user; }
+  async function getToken() {
+    if (_token && _tokenExp > Date.now() + 60000) return _token;
+    return new Promise((resolve, reject) => {
+      _tokenClient.callback = async (resp) => {
+        if (resp.error) { reject(new Error(resp.error)); return; }
+        _token = resp.access_token;
+        _tokenExp = Date.now() + (resp.expires_in || 3600) * 1000;
+        localStorage.setItem(GTOKEN_KEY, _token); localStorage.setItem(GTOKEN_EXP_KEY, String(_tokenExp));
+        resolve(_token);
+      };
+      _tokenClient.requestAccessToken({ prompt: '' });
+    });
+  }
+
+  async function dFetch(method, path, body, contentType) {
+    const token = await getToken();
+    const headers = { Authorization: `Bearer ${token}` };
+    if (contentType) headers['Content-Type'] = contentType;
+    const res = await fetch(`${DRIVE}${path}`, { method, headers, body: body !== undefined ? body : undefined });
+    if (res.status === 404) return null;
+    if (!res.ok) { const err = new Error(`Drive ${method} ${path} → ${res.status}`); err.status = res.status; throw err; }
+    if (res.status === 204) return null;
+    const ct = res.headers.get('content-type') || '';
+    return ct.includes('json') ? res.json() : res.text();
+  }
+
+  const DriveStorage = {
+    _rootId: null,
+    _ids: {},
+
+    init(rootFolderId) { this._rootId = rootFolderId; this._ids = {}; },
+
+    async _dir(folderPath) {
+      if (!folderPath) return this._rootId;
+      if (this._ids[folderPath]) return this._ids[folderPath];
+      const parts = folderPath.split('/').filter(Boolean);
+      let parentId = this._rootId, cur = '';
+      for (const name of parts) {
+        cur = cur ? `${cur}/${name}` : name;
+        if (this._ids[cur]) { parentId = this._ids[cur]; continue; }
+        const q = `name='${name.replace(/'/g,"\\'")}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+        const r = await dFetch('GET', `/files?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1`);
+        let id = r?.files?.[0]?.id;
+        if (!id) {
+          const cr = await dFetch('POST', '/files?fields=id', JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }), 'application/json');
+          id = cr?.id;
+        }
+        if (!id) throw new Error(`Cannot find or create folder: ${cur}`);
+        this._ids[cur] = id; parentId = id;
+      }
+      return parentId;
+    },
+
+    async readFile(rel) {
+      if (!this._ids[rel]) {
+        const parts = rel.split('/'); const name = parts.pop();
+        const parentId = await this._dir(parts.join('/'));
+        const q = `name='${name.replace(/'/g,"\\'")}' and '${parentId}' in parents and trashed=false`;
+        const r = await dFetch('GET', `/files?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1`);
+        const id = r?.files?.[0]?.id;
+        if (!id) return null;
+        this._ids[rel] = id;
+      }
+      const token = await getToken();
+      const res = await fetch(`${DRIVE}/files/${this._ids[rel]}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
+      return res.ok ? res.text() : null;
+    },
+
+    async writeFile(rel, content) {
+      if (!this._ids[rel]) {
+        const parts = rel.split('/'); const name = parts.pop();
+        const parentId = await this._dir(parts.join('/'));
+        const q = `name='${name.replace(/'/g,"\\'")}' and '${parentId}' in parents and trashed=false`;
+        const r = await dFetch('GET', `/files?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1`);
+        const id = r?.files?.[0]?.id;
+        if (id) this._ids[rel] = id;
+      }
+      const token = await getToken();
+      if (this._ids[rel]) {
+        const r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${this._ids[rel]}?uploadType=media`, {
+          method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain; charset=utf-8' }, body: content,
+        });
+        if (!r.ok) throw new Error(`Drive PATCH ${rel} → ${r.status}: ${await r.text()}`);
+      } else {
+        const parts = rel.split('/'); const name = parts.pop();
+        const parentId = await this._dir(parts.join('/'));
+        const meta = JSON.stringify({ name, parents: [parentId], mimeType: 'text/plain' });
+        const body = `--stoult_b\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--stoult_b\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${content}\r\n--stoult_b--`;
+        const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+          method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/related; boundary=stoult_b' }, body,
+        });
+        if (!r.ok) throw new Error(`Drive POST ${rel} → ${r.status}: ${await r.text()}`);
+        this._ids[rel] = (await r.json()).id;
+      }
+    },
+
+    async writeBinaryFile(rel, blob) {
+      if (!this._ids[rel]) {
+        const parts = rel.split('/'); const name = parts.pop();
+        const parentId = await this._dir(parts.join('/'));
+        const q = `name='${name.replace(/'/g,"\\'")}' and '${parentId}' in parents and trashed=false`;
+        const r = await dFetch('GET', `/files?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1`);
+        const id = r?.files?.[0]?.id;
+        if (id) this._ids[rel] = id;
+      }
+      const token = await getToken();
+      const mimeType = blob.type || 'application/octet-stream';
+      if (this._ids[rel]) {
+        const r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${this._ids[rel]}?uploadType=media`, {
+          method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': mimeType }, body: blob,
+        });
+        if (!r.ok) throw new Error(`Drive PATCH binary ${rel} → ${r.status}`);
+      } else {
+        const parts = rel.split('/'); const name = parts.pop();
+        const parentId = await this._dir(parts.join('/'));
+        const boundary = 'stoult_bin_b';
+        const metaJson = JSON.stringify({ name, parents: [parentId], mimeType });
+        const enc = new TextEncoder();
+        const pre = enc.encode(`--${boundary}\r\nContent-Type: application/json\r\n\r\n${metaJson}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`);
+        const suf = enc.encode(`\r\n--${boundary}--`);
+        const buf = await blob.arrayBuffer();
+        const combined = new Uint8Array(pre.length + buf.byteLength + suf.length);
+        combined.set(pre, 0); combined.set(new Uint8Array(buf), pre.length); combined.set(suf, pre.length + buf.byteLength);
+        const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+          method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` }, body: combined,
+        });
+        if (!r.ok) throw new Error(`Drive POST binary ${rel} → ${r.status}`);
+        this._ids[rel] = (await r.json()).id;
+      }
+    },
+
+    async readFileAsDataURL(rel) {
+      if (!this._ids[rel]) {
+        const parts = rel.split('/'); const name = parts.pop();
+        const parentId = await this._dir(parts.join('/'));
+        const q = `name='${name.replace(/'/g,"\\'")}' and '${parentId}' in parents and trashed=false`;
+        const r = await dFetch('GET', `/files?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1`);
+        const id = r?.files?.[0]?.id;
+        if (!id) return null;
+        this._ids[rel] = id;
+      }
+      const token = await getToken();
+      const res = await fetch(`${DRIVE}/files/${this._ids[rel]}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    },
+
+    async listFiles(rel) {
+      const folderId = await this._dir(rel);
+      const q = `'${folderId}' in parents and trashed=false`;
+      const r = await dFetch('GET', `/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType)&pageSize=1000`);
+      const files = r?.files || [];
+      for (const f of files) this._ids[`${rel}/${f.name}`] = f.id;
+      return files.map(f => ({ name: f.name, file: f.mimeType !== 'application/vnd.google-apps.folder' ? true : undefined }));
+    },
+
+    async ensureFolder(rel) { await this._dir(rel); },
+
+    async deleteFile(rel) {
+      if (!this._ids[rel]) await this.readFile(rel);
+      if (!this._ids[rel]) return;
+      await dFetch('DELETE', `/files/${this._ids[rel]}`);
+      delete this._ids[rel];
+    },
+  };
+
+  const FSALStorage = {
+    _root: null,
+    async init(h) { this._root = h; await _saveHandle(h); },
+    async _traverse(rel, create = false) {
+      const parts = rel.split('/').filter(Boolean); let node = this._root;
+      for (let i = 0; i < parts.length; i++) {
+        const p = parts[i], isLast = i === parts.length - 1, isFile = isLast && p.includes('.');
+        node = isFile ? await node.getFileHandle(p, { create }) : await node.getDirectoryHandle(p, { create });
+      }
+      return node;
+    },
+    async readFile(rel)     { try { const fh = await this._traverse(rel); return (await fh.getFile()).text(); } catch { return null; } },
+    async writeFile(rel, c) { const fh = await this._traverse(rel, true); const w = await fh.createWritable(); await w.write(c); await w.close(); },
+    async writeBinaryFile(rel, blob) { const fh = await this._traverse(rel, true); const w = await fh.createWritable(); await w.write(blob); await w.close(); },
+    async readFileAsDataURL(rel) {
+      try {
+        const fh = await this._traverse(rel);
+        const file = await fh.getFile();
+        return new Promise(resolve => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(file);
+        });
+      } catch { return null; }
+    },
+    async listFiles(rel) { try { const dir = await this._traverse(rel); const out = []; for await (const [name, h] of dir.entries()) out.push({ name, file: h.kind === 'file' || undefined }); return out; } catch { return []; } },
+    async ensureFolder(rel) { await this._traverse(rel, true); },
+    async deleteFile(rel)   { const parts = rel.split('/').filter(Boolean); const name = parts.pop(); const dir = await this._traverse(parts.join('/')); await dir.removeEntry(name); },
+  };
+
+  function _openIDB() { return new Promise((res, rej) => { const req = indexedDB.open(IDB_DB, 1); req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE); req.onsuccess = e => res(e.target.result); req.onerror = e => rej(e.target.error); }); }
+  async function _saveHandle(h) { const db = await _openIDB(); await new Promise((res, rej) => { const tx = db.transaction(IDB_STORE, 'readwrite'); tx.objectStore(IDB_STORE).put(h, IDB_KEY); tx.oncomplete = res; tx.onerror = rej; }); }
+  async function loadHandle() { try { const db = await _openIDB(); return new Promise((res, rej) => { const tx = db.transaction(IDB_STORE, 'readonly'); const req = tx.objectStore(IDB_STORE).get(IDB_KEY); req.onsuccess = e => res(e.target.result || null); req.onerror = rej; }); } catch { return null; } }
+  async function clearHandle() { try { const db = await _openIDB(); await new Promise((res, rej) => { const tx = db.transaction(IDB_STORE, 'readwrite'); tx.objectStore(IDB_STORE).delete(IDB_KEY); tx.oncomplete = res; tx.onerror = rej; }); } catch {} }
+
+  let _storage = null;
+  return { initGoogle, signIn, signOut, getUser, getToken, DriveStorage, FSALStorage, loadHandle, clearHandle, getStorage() { return _storage; }, setStorage(s) { _storage = s; } };
+})();
+</script>
+
+<script>
+const GOOGLE_CLIENT_ID = '829248142619-hvklu048j23gft4m0d5jeg8l1hjv2lid.apps.googleusercontent.com';
+const DRIVE_ROOT_KEY   = 'stoult_drive_root';
+const VINYL_BASE       = 'References/Vinyl';
+const BOOKS_BASE       = 'References/Books';
+const ARTWORK_BASE     = 'References/Artwork';
+let storage = null;
+
 // ════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════
@@ -1012,7 +1303,6 @@ let recentEntries = JSON.parse(localStorage.getItem('ledger_recent') || '[]');
 let vinylCollection = [];
 let booksCollection = [];
 let artworkCollection = [];
-let artworkDirHandle = null;
 let artworkIndex = [];
 let localImageCache = {};
 let currentBrowseType = 'vinyl';
@@ -1024,38 +1314,129 @@ let activeFilters = {}; // { genre: 'Hip Hop', color: 'Red', ... }
 // ════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════
-renderRecent();
-updateVaultUI(); // always reset to disconnected state on load
+async function init() {
+  renderRecent();
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    if (currentAction === 'add') {
+      if (currentAddTab === 'vinyl' && !document.getElementById('vConfirm').innerHTML) searchVinyl();
+      if (currentAddTab === 'books' && !document.getElementById('bConfirm').innerHTML) searchBooks();
+    }
+  });
 
-document.getElementById('btnConnect').addEventListener('click', connectVault);
-document.addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
-  if (currentAction === 'add') {
-    if (currentAddTab === 'vinyl' && !document.getElementById('vConfirm').innerHTML) searchVinyl();
-    if (currentAddTab === 'books' && !document.getElementById('bConfirm').innerHTML) searchBooks();
+  // 1. Try restoring FSAL handle
+  const handle = await STOULT.loadHandle();
+  if (handle) {
+    const perm = await handle.queryPermission({ mode: 'readwrite' });
+    if (perm === 'granted') { return initWithFSAL(handle); }
+    if (perm === 'prompt')  {
+      window._pendingHandle = handle;
+      updateVaultUI();
+      document.getElementById('onboardingCard').style.display = 'block';
+      document.getElementById('setupOptions').style.display = 'none';
+      document.getElementById('reconnectRow').style.display = '';
+      document.getElementById('discogsTokenWrap').style.display = DISCOGS_TOKEN ? 'none' : 'block';
+      return;
+    }
   }
-});
+
+  // 2. Try Google silent auth
+  if (GOOGLE_CLIENT_ID !== 'YOUR_GOOGLE_CLIENT_ID') {
+    const hasSession = await STOULT.initGoogle(GOOGLE_CLIENT_ID);
+    if (hasSession) { return initWithDrive(); }
+  }
+
+  updateVaultUI();
+}
+init();
 
 // ════════════════════════════════════════════
 // VAULT
 // ════════════════════════════════════════════
-async function connectVault() {
+async function connectLocalVault() {
+  if (!window.showDirectoryPicker) { showToast('folder picker not supported on this browser', 'error'); return; }
   try {
-    vaultHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-    updateVaultUI();
-    showToast('vault connected — building index...', 'success');
-    await loadCollections();
-    showToast(`indexed ${vinylIndex.length} records · ${booksIndex.length} books`, 'success');
-    const activeNav = document.querySelector('.nav-btn.active')?.id;
-    if (activeNav === 'navBrowse') renderBrowse();
-    if (activeNav === 'navStats') renderStats();
+    const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    await initWithFSAL(handle);
   } catch(e) {
     if (e.name !== 'AbortError') showToast('could not connect vault', 'error');
   }
 }
 
-function disconnectVault() {
-  vaultHandle = null;
+async function reconnectVault() {
+  const handle = window._pendingHandle;
+  await handle.requestPermission({ mode: 'readwrite' });
+  await initWithFSAL(handle);
+}
+
+async function initWithFSAL(handle) {
+  await STOULT.FSALStorage.init(handle);
+  storage = STOULT.FSALStorage;
+  STOULT.setStorage(storage);
+  updateVaultUI(handle.name);
+  showToast('vault connected — building index...', 'success');
+  await loadCollections();
+  showToast(`indexed ${vinylIndex.length} records · ${booksIndex.length} books`, 'success');
+  const activeNav = document.querySelector('.nav-btn.active')?.id;
+  if (activeNav === 'navBrowse') renderBrowse();
+  if (activeNav === 'navStats') renderStats();
+}
+
+async function signInGoogle() {
+  try {
+    await STOULT.initGoogle(GOOGLE_CLIENT_ID);
+    await STOULT.signIn();
+    document.getElementById('onboardingCard').style.display = 'block';
+    document.getElementById('setupOptions').style.display = 'none';
+    document.getElementById('reconnectRow').style.display = 'none';
+    document.getElementById('vaultPathRow').style.display = '';
+  } catch(e) { showToast('sign-in failed', 'error'); console.error(e); }
+}
+
+async function confirmVaultPath() {
+  const name = document.getElementById('vaultPathInput').value.trim();
+  if (!name) return;
+  try {
+    const token = await STOULT.getToken();
+    const q = `name='${name}' and mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false`;
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!data.files?.length) { showToast(`folder "${name}" not found in drive`, 'error'); return; }
+    localStorage.setItem(DRIVE_ROOT_KEY, data.files[0].id);
+    await initWithDrive();
+  } catch(e) { showToast('could not connect to drive', 'error'); console.error(e); }
+}
+
+async function initWithDrive() {
+  const user = STOULT.getUser();
+  if (!user) { updateVaultUI(); return; }
+  const rootId = localStorage.getItem(DRIVE_ROOT_KEY);
+  if (!rootId) {
+    document.getElementById('onboardingCard').style.display = 'block';
+    document.getElementById('setupOptions').style.display = 'none';
+    document.getElementById('reconnectRow').style.display = 'none';
+    document.getElementById('vaultPathRow').style.display = '';
+    return;
+  }
+  STOULT.DriveStorage.init(rootId);
+  storage = STOULT.DriveStorage;
+  STOULT.setStorage(storage);
+  updateVaultUI(user.email || user.name || 'google drive');
+  showToast('vault connected — building index...', 'success');
+  await loadCollections();
+  showToast(`indexed ${vinylIndex.length} records · ${booksIndex.length} books`, 'success');
+  const activeNav = document.querySelector('.nav-btn.active')?.id;
+  if (activeNav === 'navBrowse') renderBrowse();
+  if (activeNav === 'navStats') renderStats();
+}
+
+async function disconnectVault() {
+  STOULT.signOut();
+  await STOULT.clearHandle();
+  localStorage.removeItem(DRIVE_ROOT_KEY);
+  storage = null;
   vinylCollection = [];
   booksCollection = [];
   artworkCollection = [];
@@ -1064,14 +1445,14 @@ function disconnectVault() {
   updateVaultUI();
 }
 
-function updateVaultUI() {
-  if (vaultHandle) {
+function updateVaultUI(displayName) {
+  if (storage) {
     document.getElementById('vaultOut').style.display = 'none';
     const pill = document.getElementById('vaultIn');
     pill.style.display = 'flex';
     pill.classList.add('connected');
     document.getElementById('pillDot').classList.add('on');
-    document.getElementById('vaultName').textContent = vaultHandle.name;
+    document.getElementById('vaultName').textContent = displayName || 'vault';
     document.getElementById('onboardingCard').style.display = 'none';
   } else {
     document.getElementById('vaultOut').style.display = '';
@@ -1081,56 +1462,35 @@ function updateVaultUI() {
     document.getElementById('pillDot').classList.remove('on');
     if (currentAction === 'add') {
       document.getElementById('onboardingCard').style.display = 'block';
+      document.getElementById('setupOptions').style.display = '';
+      document.getElementById('reconnectRow').style.display = 'none';
+      document.getElementById('vaultPathRow').style.display = 'none';
       document.getElementById('discogsTokenWrap').style.display = DISCOGS_TOKEN ? 'none' : 'block';
     }
   }
 }
 
-async function getOrCreateFolder(parentHandle, name) {
-  return await parentHandle.getDirectoryHandle(name, { create: true });
-}
-
-async function writeFile(folderHandle, filename, content) {
-  const fh = await folderHandle.getFileHandle(filename, { create: true });
-  const w = await fh.createWritable();
-  await w.write(content);
-  await w.close();
-}
-
 // ════════════════════════════════════════════
-// COLLECTION — search-driven, no upfront indexing
+// COLLECTION
 // ════════════════════════════════════════════
-let vinylDirHandle = null;
-let booksDirHandle = null;
 let searchDebounce = null;
 
-// Filename-only indexes built on connect (no file reads, fast)
-// Maps artist/author name (lowercase) → Set of album/book filenames that belong to them
-// Built by reading frontmatter of each vinyl/book file once per session... 
-// Actually: we use the Wikilinks in the filename index approach:
-// vinyl files are named after albums. Musicians/ stubs are named after artists.
-// We build: artistName → [album filenames] by reading each vinyl file's artist field.
-// But that's slow. Instead: store handle maps and search both title AND content lazily.
-
-// Simple approach: index is just { name (display), filename } for quick filename match
-// For artist search, we read the file only if filename doesn't match but we need content match
-// → On connect, build a lightweight map: album filename → artist name string
-//   by reading ONLY the artist: line from each file (first ~5 lines, not full parse)
 let vinylIndex = []; // [{ filename, artist }]
 let booksIndex = []; // [{ filename, author }]
 
 async function loadCollections() {
-  if (!vaultHandle) return;
+  if (!storage) return;
   try {
-    const refs = await vaultHandle.getDirectoryHandle('References', { create: false });
-    try { vinylDirHandle   = await refs.getDirectoryHandle('Vinyl',   { create: false }); } catch(e) { vinylDirHandle   = null; }
-    try { booksDirHandle   = await refs.getDirectoryHandle('Books',   { create: false }); } catch(e) { booksDirHandle   = null; }
-    try { artworkDirHandle = await refs.getDirectoryHandle('Artwork',  { create: false }); } catch(e) { artworkDirHandle = null; }
-
-    vinylIndex   = await buildIndex(vinylDirHandle,   'artist');
-    booksIndex   = await buildIndex(booksDirHandle,   'author');
-    artworkIndex = await buildIndex(artworkDirHandle, 'artist');
-
+    await Promise.all([
+      storage.ensureFolder(VINYL_BASE),
+      storage.ensureFolder(BOOKS_BASE),
+      storage.ensureFolder(ARTWORK_BASE),
+    ]);
+    [vinylIndex, booksIndex, artworkIndex] = await Promise.all([
+      buildIndex(VINYL_BASE, 'artist'),
+      buildIndex(BOOKS_BASE, 'author'),
+      buildIndex(ARTWORK_BASE, 'artist'),
+    ]);
     vinylCollection = [];
     booksCollection = [];
     artworkCollection = [];
@@ -1138,31 +1498,21 @@ async function loadCollections() {
     browseCache = { vinyl: null, books: null, art: null };
     renderBrowse();
     renderStats();
-  } catch(e) { /* no References folder yet */ }
+  } catch(e) { console.error(e); }
 }
 
-async function buildIndex(dirHandle, field) {
-  if (!dirHandle) return [];
-  const index = [];
-  const MAX_BYTES = 400; // only read start of file for artist/author field
-
-  const handles = [];
-  for await (const [name, handle] of dirHandle.entries()) {
-    if (handle.kind === 'file' && name.endsWith('.md')) handles.push({ name, handle });
-  }
-
-  // Read just the first 400 bytes of each file in parallel batches
+async function buildIndex(base, field) {
+  const files = (await storage.listFiles(base)).filter(f => f.file && f.name.endsWith('.md'));
   const BATCH = 80;
-  for (let i = 0; i < handles.length; i += BATCH) {
-    const batch = handles.slice(i, i + BATCH);
-    const results = await Promise.all(batch.map(async ({ name, handle }) => {
+  const index = [];
+  for (let i = 0; i < files.length; i += BATCH) {
+    const batch = files.slice(i, i + BATCH);
+    const results = await Promise.all(batch.map(async f => {
       try {
-        const file = await handle.getFile();
-        const slice = file.slice(0, MAX_BYTES);
-        const text = await slice.text();
-        const fieldVal = extractField(text, field);
-        return { filename: name, [field]: (fieldVal || '').toLowerCase() };
-      } catch(e) { return { filename: name, [field]: '' }; }
+        const text = await storage.readFile(`${base}/${f.name}`);
+        const fieldVal = extractField(text || '', field);
+        return { filename: f.name, [field]: (fieldVal || '').toLowerCase() };
+      } catch(e) { return { filename: f.name, [field]: '' }; }
     }));
     results.forEach(r => index.push(r));
   }
@@ -1287,16 +1637,16 @@ function switchAction(action) {
     document.getElementById('addBooks').style.display = currentAddTab === 'books' ? 'block' : 'none';
     document.getElementById('addArt').style.display   = currentAddTab === 'art'   ? 'block' : 'none';
   }
-  if (!vaultHandle) {
+  if (!storage) {
     document.getElementById('onboardingCard').style.display = action === 'add' ? 'block' : 'none';
   }
   if (action === 'browse') {
     activeFilters = {};
-    if (vaultHandle && vinylCollection.length === 0 && booksCollection.length === 0) loadCollections();
+    if (storage && vinylCollection.length === 0 && booksCollection.length === 0) loadCollections();
     else renderBrowse();
   }
   if (action === 'stats') {
-    if (vaultHandle && vinylCollection.length === 0 && booksCollection.length === 0) loadCollections();
+    if (storage && vinylCollection.length === 0 && booksCollection.length === 0) loadCollections();
     else renderStats();
   }
 }
@@ -1454,25 +1804,18 @@ function renderGrid() {
 async function filterCollection() {
   const type      = currentBrowseType;
   const isArt     = type === 'art';
-  const dirHandle = type === 'vinyl' ? vinylDirHandle : type === 'books' ? booksDirHandle : artworkDirHandle;
+  const base     = type === 'vinyl' ? VINYL_BASE : type === 'books' ? BOOKS_BASE : ARTWORK_BASE;
   const cacheKey  = isArt ? 'art' : type;
   const label     = type === 'vinyl' ? 'records' : type === 'books' ? 'books' : 'pieces';
   const grid      = document.getElementById('collectionGrid');
   const countEl   = document.getElementById('browseCount');
 
-  if (!vaultHandle) {
+  if (!storage) {
     countEl.textContent = '';
     document.getElementById('filterBar').innerHTML = '';
     grid.innerHTML = `<div class="browse-empty">
       <div style="margin-bottom:12px">connect your vault to browse</div>
-      <button class="btn-sm" onclick="connectVault()" style="font-size:11px;padding:7px 14px">connect vault</button>
     </div>`;
-    return;
-  }
-
-  if (!dirHandle) {
-    countEl.textContent = '';
-    grid.innerHTML = `<div class="browse-empty">no ${label} folder found in vault</div>`;
     return;
   }
 
@@ -1481,9 +1824,9 @@ async function filterCollection() {
     grid.innerHTML = `<div class="browse-empty"><span class="spinner"></span> loading ${label}...</div>`;
     countEl.textContent = '';
     if (isArt) {
-      browseCache.art = await readArtworkFiles(dirHandle);
+      browseCache.art = await readArtworkFiles(base);
     } else {
-      browseCache[cacheKey] = await readAllMdFiles(dirHandle);
+      browseCache[cacheKey] = await readAllMdFiles(base);
     }
   }
 
@@ -1560,21 +1903,21 @@ function renderArtworkCard(item) {
 // ════════════════════════════════════════════
 async function renderStats() {
   const el = document.getElementById('statsContent');
-  if (!vaultHandle) {
+  if (!storage) {
     el.innerHTML = '<div class="stat-card"><div class="loading-row">connect your vault to see stats</div></div>';
     return;
   }
 
   // Load full collections if not yet cached
-  if (vinylCollection.length === 0 && vinylDirHandle) {
+  if (vinylCollection.length === 0) {
     el.innerHTML = '<div class="stat-card"><div class="loading-row"><span class="spinner"></span> loading collection for stats...</div></div>';
-    vinylCollection = await readAllMdFiles(vinylDirHandle);
+    vinylCollection = await readAllMdFiles(VINYL_BASE);
   }
-  if (booksCollection.length === 0 && booksDirHandle) {
-    booksCollection = await readAllMdFiles(booksDirHandle);
+  if (booksCollection.length === 0) {
+    booksCollection = await readAllMdFiles(BOOKS_BASE);
   }
-  if (artworkCollection.length === 0 && artworkDirHandle) {
-    artworkCollection = await readArtworkFiles(artworkDirHandle);
+  if (artworkCollection.length === 0) {
+    artworkCollection = await readArtworkFiles(ARTWORK_BASE);
   }
 
   if (currentStatsType === 'vinyl') {
@@ -1586,22 +1929,18 @@ async function renderStats() {
   }
 }
 
-async function readAllMdFiles(dirHandle) {
-  if (!dirHandle) return [];
-  const handles = [];
-  for await (const [name, handle] of dirHandle.entries()) {
-    if (handle.kind === 'file' && name.endsWith('.md')) handles.push({ name, handle });
-  }
+async function readAllMdFiles(base) {
+  if (!storage) return [];
+  const files = (await storage.listFiles(base)).filter(f => f.file && f.name.endsWith('.md'));
   const BATCH = 80;
   const items = [];
-  for (let i = 0; i < handles.length; i += BATCH) {
-    const batch = handles.slice(i, i + BATCH);
-    const results = await Promise.all(batch.map(async ({ name, handle }) => {
+  for (let i = 0; i < files.length; i += BATCH) {
+    const batch = files.slice(i, i + BATCH);
+    const results = await Promise.all(batch.map(async f => {
       try {
-        const file = await handle.getFile();
-        const text = await file.text();
+        const text = await storage.readFile(`${base}/${f.name}`);
         const fm = parseFrontmatter(text);
-        return fm ? { filename: name, ...fm } : null;
+        return fm ? { filename: f.name, ...fm } : null;
       } catch(e) { return null; }
     }));
     results.forEach(r => r && items.push(r));
@@ -1611,40 +1950,33 @@ async function readAllMdFiles(dirHandle) {
 
 async function resolveLocalImage(filename) {
   if (localImageCache[filename]) return localImageCache[filename];
-  const searchDirs = [
-    async () => { const fh = await artworkDirHandle.getFileHandle(filename); return fh.getFile(); },
-    async () => { const fh = await vaultHandle.getFileHandle(filename); return fh.getFile(); },
-    async () => { const d = await vaultHandle.getDirectoryHandle('attachments', { create: false }); const fh = await d.getFileHandle(filename); return fh.getFile(); },
+  const searchPaths = [
+    `${ARTWORK_BASE}/${filename}`,
+    filename,
+    `attachments/${filename}`,
   ];
-  for (const tryDir of searchDirs) {
+  for (const path of searchPaths) {
     try {
-      const file = await tryDir();
-      const url = URL.createObjectURL(file);
-      localImageCache[filename] = url;
-      return url;
+      const url = await storage.readFileAsDataURL(path);
+      if (url) { localImageCache[filename] = url; return url; }
     } catch(e) {}
   }
   return null;
 }
 
-async function readArtworkFiles(dirHandle) {
-  if (!dirHandle) return [];
-  const handles = [];
-  for await (const [name, handle] of dirHandle.entries()) {
-    if (handle.kind === 'file' && name.endsWith('.md')) handles.push({ name, handle });
-  }
+async function readArtworkFiles(base) {
+  if (!storage) return [];
+  const files = (await storage.listFiles(base)).filter(f => f.file && f.name.endsWith('.md'));
   const BATCH = 40;
   const items = [];
-  for (let i = 0; i < handles.length; i += BATCH) {
-    const batch = handles.slice(i, i + BATCH);
-    const results = await Promise.all(batch.map(async ({ name, handle }) => {
+  for (let i = 0; i < files.length; i += BATCH) {
+    const batch = files.slice(i, i + BATCH);
+    const results = await Promise.all(batch.map(async f => {
       try {
-        const file = await handle.getFile();
-        const text = await file.text();
+        const text = await storage.readFile(`${base}/${f.name}`);
         const fm = parseFrontmatter(text);
         if (!fm) return null;
-        const item = { filename: name, title: name.replace('.md',''), ...fm };
-        // Try to resolve local image to a blob URL
+        const item = { filename: f.name, title: f.name.replace('.md', ''), ...fm };
         if (!item._cover && item._localImage) {
           item._cover = await resolveLocalImage(item._localImage);
         }
@@ -2090,7 +2422,7 @@ function clearVinylConfirm() {
 }
 
 async function saveVinyl() {
-  if (!vaultHandle) { showToast('connect your vault first', 'error'); return; }
+  if (!storage) { showToast('connect your vault first', 'error'); return; }
   const color = document.getElementById('vColorFinal').value.trim() || 'Unknown';
   const data = selectedVinyl;
   let title, artists, year, released, master_id, genres, styles, coverUrl, tracklist, notes;
@@ -2149,22 +2481,20 @@ ${notes}
 `;
 
   try {
-    const refs = await getOrCreateFolder(vaultHandle, 'References');
-    const vinylFolder = await getOrCreateFolder(refs, 'Vinyl');
-    const musiciansFolder = await getOrCreateFolder(refs, 'Musicians');
+    await storage.ensureFolder(VINYL_BASE);
+    await storage.ensureFolder('References/Musicians');
 
     // Create musician stubs for any new artists
     for (const artist of artists) {
       const artistFilename = sanitize(artist) + '.md';
-      try {
-        await musiciansFolder.getFileHandle(artistFilename);
-      } catch(e) {
+      const existing = await storage.readFile(`References/Musicians/${artistFilename}`);
+      if (!existing) {
         const stub = `---\ncategory: "[[Musicians]]"\ntags:\n  - artist\nname: "${artist}"\ncreated: ${createdDate}\n---\n\n# ${artist}\n`;
-        await writeFile(musiciansFolder, artistFilename, stub);
+        await storage.writeFile(`References/Musicians/${artistFilename}`, stub);
       }
     }
 
-    await writeFile(vinylFolder, filename, content);
+    await storage.writeFile(`${VINYL_BASE}/${filename}`, content);
     addRecent({ type: 'vinyl', title, sub: artists.join(', '), cover: coverUrl });
     showToast(`saved: ${title}`, 'success');
     resetVinylForm();
@@ -2325,7 +2655,7 @@ function clearBookConfirm() {
 }
 
 async function saveBook() {
-  if (!vaultHandle) { showToast('connect your vault first', 'error'); return; }
+  if (!storage) { showToast('connect your vault first', 'error'); return; }
   const doc = selectedBook;
   const author = document.getElementById('bAuthor').value.trim();
   const form = document.getElementById('bForm').value;
@@ -2394,21 +2724,18 @@ ${endDate ? `| Finished | ${endDate} |` : ''}
 `;
 
   try {
-    const refs = await getOrCreateFolder(vaultHandle, 'References');
-    const booksFolder = await getOrCreateFolder(refs, 'Books');
-    const authorsFolder = await getOrCreateFolder(refs, 'Authors');
+    await storage.ensureFolder(BOOKS_BASE);
+    await storage.ensureFolder('References/Authors');
 
     // Create author stub if it doesn't exist
     const authorFilename = sanitize(author) + '.md';
-    try {
-      await authorsFolder.getFileHandle(authorFilename);
-    } catch(e) {
-      // Doesn't exist — create stub
+    const existingAuthor = await storage.readFile(`References/Authors/${authorFilename}`);
+    if (!existingAuthor) {
       const authorStub = `---\ncategory: "[[Authors]]"\ntags:\n  - author\nname: "${author}"\ncreated: ${createdDate}\n---\n\n# ${author}\n`;
-      await writeFile(authorsFolder, authorFilename, authorStub);
+      await storage.writeFile(`References/Authors/${authorFilename}`, authorStub);
     }
 
-    await writeFile(booksFolder, filename, content);
+    await storage.writeFile(`${BOOKS_BASE}/${filename}`, content);
     addRecent({ type: 'book', title, sub: author, cover });
     showToast(`saved: ${title}`, 'success');
     resetBookForm();
@@ -2430,7 +2757,7 @@ function resetBookForm() {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function enrichBooks() {
-  if (!vaultHandle || !booksDirHandle) { showToast('connect vault first', 'error'); return; }
+  if (!storage) { showToast('connect vault first', 'error'); return; }
 
   const btn      = document.getElementById('bEnrichBtn');
   const progress = document.getElementById('bEnrichProgress');
@@ -2439,10 +2766,7 @@ async function enrichBooks() {
   progress.innerHTML = '';
 
   // Collect all .md files
-  const handles = [];
-  for await (const [name, handle] of booksDirHandle.entries()) {
-    if (handle.kind === 'file' && name.endsWith('.md')) handles.push({ name, handle });
-  }
+  const fileList = (await storage.listFiles(BOOKS_BASE)).filter(f => f.file && f.name.endsWith('.md'));
 
   let updated = 0, skipped = 0, failed = 0;
   const log = [];
@@ -2452,14 +2776,15 @@ async function enrichBooks() {
     progress.innerHTML = log.slice(0, 20).join('<br>');
   };
 
-  for (let i = 0; i < handles.length; i++) {
-    const { name, handle } = handles[i];
-    btn.textContent = `processing ${i + 1} / ${handles.length}…`;
+  for (let i = 0; i < fileList.length; i++) {
+    const { name } = fileList[i];
+    btn.textContent = `processing ${i + 1} / ${fileList.length}…`;
 
     let text;
     try {
-      const f = await handle.getFile();
-      text = (await f.text()).replace(/\r\n/g, '\n');
+      const raw = await storage.readFile(`${BOOKS_BASE}/${name}`);
+      if (!raw) { failed++; continue; }
+      text = raw.replace(/\r\n/g, '\n');
     } catch(e) { failed++; continue; }
 
     const fm = parseFrontmatter(text);
@@ -2575,7 +2900,7 @@ async function enrichBooks() {
     if (newText === text) { skipped++; continue; }
 
     try {
-      await writeFile(booksDirHandle, name, newText);
+      await storage.writeFile(`${BOOKS_BASE}/${name}`, newText);
       updated++;
       addLog(`<span style="color:var(--green)">✓ ${title}</span>`);
     } catch(e) {
@@ -2623,7 +2948,7 @@ function artPhotoChosen(input) {
 }
 
 async function saveArtwork() {
-  if (!vaultHandle) { showToast('connect your vault first', 'error'); return; }
+  if (!storage) { showToast('connect your vault first', 'error'); return; }
   if (!artPhotoFile) { showToast('choose a photo first', 'error'); return; }
 
   const title  = document.getElementById('artTitle').value.trim();
@@ -2665,25 +2990,21 @@ created: ${createdDate}
   btn.textContent = 'saving...';
 
   try {
-    const refs = await getOrCreateFolder(vaultHandle, 'References');
-    const artworkFolder = await getOrCreateFolder(refs, 'Artwork');
+    await storage.ensureFolder(ARTWORK_BASE);
 
     // Copy image file into Artwork folder
-    const imgFh = await artworkFolder.getFileHandle(imageFilename, { create: true });
-    const writable = await imgFh.createWritable();
-    await writable.write(artPhotoFile);
-    await writable.close();
+    await storage.writeBinaryFile(`${ARTWORK_BASE}/${imageFilename}`, artPhotoFile);
 
     // Write markdown
-    await writeFile(artworkFolder, mdFilename, content);
+    await storage.writeFile(`${ARTWORK_BASE}/${mdFilename}`, content);
 
     // Artist stub
     if (artist) {
-      const artistsFolder = await getOrCreateFolder(artworkFolder, 'Artists');
+      await storage.ensureFolder(`${ARTWORK_BASE}/Artists`);
       const artistFilename = sanitize(artist) + '.md';
-      try { await artistsFolder.getFileHandle(artistFilename); }
-      catch(e) {
-        await writeFile(artistsFolder, artistFilename,
+      const existingArtist = await storage.readFile(`${ARTWORK_BASE}/Artists/${artistFilename}`);
+      if (!existingArtist) {
+        await storage.writeFile(`${ARTWORK_BASE}/Artists/${artistFilename}`,
           `---\ncategory: "[[Artists]]"\ntags:\n  - artist\nname: "${artist}"\ncreated: ${createdDate}\n---\n\n# ${artist}\n`);
       }
     }
@@ -2781,11 +3102,9 @@ async function openDetail(filename) {
   detailItem   = { ...item, _type: type };
   detailRating = parseRating(item.rating) || 0;
 
-  const dirHandle = type === 'vinyl' ? vinylDirHandle : type === 'books' ? booksDirHandle : artworkDirHandle;
+  const base = type === 'vinyl' ? VINYL_BASE : type === 'books' ? BOOKS_BASE : ARTWORK_BASE;
   try {
-    const fh   = await dirHandle.getFileHandle(filename);
-    const f    = await fh.getFile();
-    detailItem._fullText = await f.text();
+    detailItem._fullText = await storage.readFile(`${base}/${filename}`) || '';
   } catch(e) { detailItem._fullText = ''; }
 
   renderDetailPanel();
@@ -2957,16 +3276,14 @@ function renderDetailPanel() {
 }
 
 async function saveDetail() {
-  if (!detailItem || !vaultHandle) return;
+  if (!detailItem || !storage) return;
   const type      = detailItem._type;
   const isVinyl   = type === 'vinyl';
-  const dirHandle = type === 'vinyl' ? vinylDirHandle : type === 'books' ? booksDirHandle : artworkDirHandle;
+  const base      = type === 'vinyl' ? VINYL_BASE : BOOKS_BASE;
   if (type === 'art') { showToast('artwork is read-only', 'error'); return; }
 
   try {
-    const fh  = await dirHandle.getFileHandle(detailItem.filename);
-    const f   = await fh.getFile();
-    let text  = (await f.text()).replace(/\r\n/g, '\n');
+    let text = ((await storage.readFile(`${base}/${detailItem.filename}`)) || '').replace(/\r\n/g, '\n');
 
     // Update rating in frontmatter
     text = text.replace(/^rating: .*$/m, `rating: ${detailRating || ''}`);
@@ -2989,7 +3306,7 @@ async function saveDetail() {
       text = text.replace(/## My Notes\n[\s\S]*?\n---/, `## My Notes\n${notes}\n\n---`);
     }
 
-    await writeFile(dirHandle, detailItem.filename, text);
+    await storage.writeFile(`${base}/${detailItem.filename}`, text);
 
     // Bust cache so grid reflects any changes (status, color)
     browseCache[type] = null;
