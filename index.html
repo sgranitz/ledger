@@ -1292,7 +1292,6 @@ function saveDiscogsToken(val) {
     document.getElementById('discogsTokenWrap').style.display = 'none';
   }
 }
-let vaultHandle = null;
 let selectedVinyl = null;
 let selectedBook = null;
 let vinylRating = 0;
@@ -1365,7 +1364,8 @@ async function connectLocalVault() {
 
 async function reconnectVault() {
   const handle = window._pendingHandle;
-  await handle.requestPermission({ mode: 'readwrite' });
+  const result = await handle.requestPermission({ mode: 'readwrite' });
+  if (result !== 'granted') { showToast('vault access denied', 'error'); return; }
   await initWithFSAL(handle);
 }
 
