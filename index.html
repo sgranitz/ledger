@@ -363,11 +363,12 @@ body {
 
 /* ── BROWSE ── */
 .browse-controls {
+  display: flex; gap: 8px; align-items: center;
   margin-bottom: 10px;
 }
 
 .browse-search {
-  width: 100%; box-sizing: border-box;
+  flex: 1; box-sizing: border-box;
   background: var(--card); border: 1px solid var(--border);
   border-radius: 6px; color: var(--cream);
   font-family: 'Victor Mono', monospace; font-size: 12px;
@@ -964,6 +965,11 @@ select.det-input { cursor: pointer; }
 
   <div class="browse-controls">
     <input class="browse-search" id="browseSearch" type="text" placeholder="search by title or artist..." oninput="debouncedSearch()">
+    <select class="filter-select" id="sortSelect" onchange="setSort(this.value)">
+      <option value="title">a → z</option>
+      <option value="added">date added</option>
+      <option value="released">year released</option>
+    </select>
   </div>
 
   <div class="filter-bar" id="filterBar"></div>
@@ -1308,6 +1314,7 @@ let currentBrowseType = 'vinyl';
 let currentStatsType = 'vinyl';
 let currentAddTab = 'vinyl';
 let currentAction = 'add';
+let currentSort = 'title';
 let activeFilters = {}; // { genre: 'Hip Hop', color: 'Red', ... }
 
 // ════════════════════════════════════════════
@@ -1667,6 +1674,11 @@ function debouncedSearch() {
   searchDebounce = setTimeout(() => filterCollection(), 300);
 }
 
+function setSort(val) {
+  currentSort = val;
+  renderGrid();
+}
+
 function setFilter(key, value) {
   if (value === '') {
     delete activeFilters[key];
@@ -1758,7 +1770,17 @@ function renderGrid() {
 
   if (!collection) return;
 
-  let items = collection;
+  let items = collection.slice().sort((a, b) => {
+    if (currentSort === 'added') {
+      return (b.created || '').localeCompare(a.created || '');
+    }
+    if (currentSort === 'released') {
+      return (parseInt(b.year) || 0) - (parseInt(a.year) || 0);
+    }
+    const ta = (a.title || a.filename || '').toLowerCase();
+    const tb = (b.title || b.filename || '').toLowerCase();
+    return ta.localeCompare(tb);
+  });
 
   // Text search
   if (q) {
