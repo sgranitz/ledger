@@ -363,12 +363,11 @@ body {
 
 /* ── BROWSE ── */
 .browse-controls {
-  display: flex; gap: 8px; align-items: center;
   margin-bottom: 10px;
 }
 
 .browse-search {
-  flex: 1; box-sizing: border-box;
+  width: 100%; box-sizing: border-box;
   background: var(--card); border: 1px solid var(--border);
   border-radius: 6px; color: var(--cream);
   font-family: 'Victor Mono', monospace; font-size: 12px;
@@ -496,10 +495,15 @@ body {
 }
 
 .browse-count {
+  display: flex; align-items: center; justify-content: space-between;
   font-size: 10px; color: var(--faint);
   letter-spacing: 0.08em; margin-bottom: 14px;
   text-transform: uppercase;
 }
+.sort-chips { display: flex; gap: 10px; }
+.sort-chip { cursor: pointer; transition: color 0.15s; }
+.sort-chip:hover { color: var(--muted); }
+.sort-chip.active { color: var(--amber); }
 
 /* ── STATS ── */
 .stats-grid {
@@ -965,11 +969,6 @@ select.det-input { cursor: pointer; }
 
   <div class="browse-controls">
     <input class="browse-search" id="browseSearch" type="text" placeholder="search by title or artist..." oninput="debouncedSearch()">
-    <select class="filter-select" id="sortSelect" onchange="setSort(this.value)">
-      <option value="title">a → z</option>
-      <option value="added">date added</option>
-      <option value="released">year released</option>
-    </select>
   </div>
 
   <div class="filter-bar" id="filterBar"></div>
@@ -1809,7 +1808,11 @@ function renderGrid() {
   }
 
   const label = type === 'vinyl' ? 'records' : type === 'books' ? 'books' : 'pieces';
-  countEl.textContent = `${items.length} of ${collection.length} ${label}`;
+  const sortOpts = [['title','a→z'],['added','date added'],['released','year released']];
+  countEl.innerHTML = `<span>${items.length} of ${collection.length} ${label}</span>
+    <span class="sort-chips">${sortOpts.map(([v,l]) =>
+      `<span class="sort-chip${currentSort===v?' active':''}" onclick="setSort('${v}')">${l}</span>`
+    ).join('')}</span>`;
 
   if (items.length === 0) {
     grid.innerHTML = `<div class="browse-empty">no results</div>`;
