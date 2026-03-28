@@ -1634,13 +1634,13 @@ function parseFrontmatter(text) {
     const keyMatch = line.match(/^(\w+):\s*(.*)$/);
 
     if (listMatch && inList) {
-      const val = listMatch[1].replace(/^"(.*)"$/, '$1').replace(/\[\[(.*?)\|[^\]]*\]\]/, '$1').replace(/\[\[(.*?)\]\]/, '$1');
+      const val = listMatch[1].replace(/^"(.*)"$/, '$1').replace(/\[\[(.*?)(?:\|[^\]]*)?\]\]/g, (_, path) => path.split('/').pop().replace(/\.md$/i, ''));
       if (!result[currentKey]) result[currentKey] = [];
       result[currentKey].push(val);
     } else if (keyMatch) {
       currentKey = keyMatch[1];
       const raw = keyMatch[2].trim();
-      const val = raw.replace(/^"(.*)"$/, '$1').replace(/\[\[(.*?)\|[^\]]*\]\]/, '$1').replace(/\[\[(.*?)\]\]/, '$1');
+      const val = raw.replace(/^"(.*)"$/, '$1').replace(/\[\[(.*?)(?:\|[^\]]*)?\]\]/g, (_, path) => path.split('/').pop().replace(/\.md$/i, ''));
       if (raw === '' || raw === 'null') {
         result[currentKey] = null;
         inList = true;  // next lines may be list items
@@ -3192,6 +3192,20 @@ async function fetchArtistTopAlbums(artistName) {
   } catch { return []; }
 }
 
+async function fetchArtistPhoto(artistName) {
+  try {
+    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(artistName)}`);
+    if (!res.ok) return '';
+    const data = await res.json();
+    return data.thumbnail?.source || '';
+  } catch { return ''; }
+}
+
+function artistMatches(ra, target) {
+  if (!ra) return false;
+  return ra === target || ra.includes(target) || target.includes(ra);
+}
+
 let currentArtistName = null;
 
 async function openArtist(artistName) {
@@ -3202,11 +3216,12 @@ async function openArtist(artistName) {
   overlay.classList.add('open');
   overlay.scrollTop = 0;
 
-  const [info, topAlbums] = await Promise.all([
+  const [info, topAlbums, photo] = await Promise.all([
     LASTFM_KEY ? fetchArtistInfo(artistName) : Promise.resolve(null),
-    fetchArtistTopAlbums(artistName)
+    fetchArtistTopAlbums(artistName),
+    fetchArtistPhoto(artistName)
   ]);
-  renderArtistPage(artistName, info, topAlbums);
+  renderArtistPage(artistName, info, topAlbums, photo);
 }
 
 function closeArtist() {
@@ -3214,11 +3229,8 @@ function closeArtist() {
   currentArtistName = null;
 }
 
-function renderArtistPage(artistName, info, topAlbums) {
+function renderArtistPage(artistName, info, topAlbums, photo) {
   const el = document.getElementById('artistContent');
-
-  // Artist photo — try each size from largest down
-  const photo = info ? (info.image || []).slice().reverse().find(i => i['#text'])?.['#text'] || '' : '';
 
   // Bio (full content, strip HTML and last.fm links)
   const bio = info ? (info.bio?.content || info.bio?.summary || '')
@@ -3229,11 +3241,12 @@ function renderArtistPage(artistName, info, topAlbums) {
   const listeners = info?.stats?.listeners ? parseInt(info.stats.listeners).toLocaleString() : null;
   const tags = info ? (info.tags?.tag || []).slice(0, 8).map(t => t.name) : [];
 
-  // Albums in collection for this artist
+  const target = artistName.toLowerCase();
+
+  // Albums in collection for this artist (exact or substring match, guard against empty ra)
   const inCollection = (browseCache.vinyl || []).filter(r => {
     const ra = (Array.isArray(r.artist) ? r.artist[0] : r.artist || '').toLowerCase();
-    const target = artistName.toLowerCase();
-    return ra === target || ra.includes(target) || target.includes(ra);
+    return artistMatches(ra, target);
   });
 
   // Top albums from Last.fm not already in collection
@@ -3247,9 +3260,10 @@ function renderArtistPage(artistName, info, topAlbums) {
   const seen = new Set();
   const similarInCollection = [];
   for (const s of similarNames) {
+    if (!s) continue;
     const record = (browseCache.vinyl || []).find(r => {
       const ra = (Array.isArray(r.artist) ? r.artist[0] : r.artist || '').toLowerCase();
-      return ra === s || ra.includes(s) || s.includes(ra);
+      return artistMatches(ra, s);
     });
     if (record && !seen.has(record.filename)) {
       seen.add(record.filename);
