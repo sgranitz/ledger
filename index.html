@@ -811,6 +811,61 @@ select.det-input { cursor: pointer; }
   .det-layout { grid-template-columns: 1fr; }
   .det-cover, .det-cover-ph { max-width: 180px; }
 }
+
+/* ── ARTIST PAGE ── */
+.artist-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border2);
+  transition: color .12s, border-color .12s;
+}
+.artist-link:hover { color: var(--amber); border-bottom-color: var(--amber-dim); }
+
+.artist-hero {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 28px;
+  align-items: start;
+  margin-bottom: 32px;
+}
+.artist-photo {
+  width: 180px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  display: block;
+}
+.artist-photo-ph {
+  width: 180px;
+  height: 180px;
+  background: var(--card);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  color: var(--faint);
+}
+.artist-name {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 36px;
+  color: var(--cream);
+  line-height: 1.15;
+  margin-bottom: 6px;
+}
+.artist-listeners {
+  font-family: 'Victor Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 12px;
+}
+@media (max-width: 560px) {
+  .artist-hero { grid-template-columns: 1fr; }
+  .artist-photo, .artist-photo-ph { max-width: 140px; }
+}
 </style>
 <script src="https://accounts.google.com/gsi/client" async></script>
 </head>
@@ -987,6 +1042,13 @@ select.det-input { cursor: pointer; }
   <div class="detail-inner">
     <button class="det-back" onclick="closeDetail()">← back to collection</button>
     <div id="detailContent"></div>
+  </div>
+</div>
+
+<div class="detail-overlay" id="artistOverlay" style="z-index:210">
+  <div class="detail-inner">
+    <button class="det-back" onclick="closeArtist()">← back to record</button>
+    <div id="artistContent"></div>
   </div>
 </div>
 
@@ -1365,8 +1427,7 @@ async function initWithFSAL(handle) {
   STOULT.setStorage(storage);
   updateVaultUI(handle.name);
   showToast('vault connected — building index...', 'success');
-  await loadConfig();
-  await loadCollections();
+  await Promise.all([loadConfig(), loadCollections()]);
   showToast(`indexed ${vinylIndex.length} records · ${booksIndex.length} books`, 'success');
   const activeNav = document.querySelector('.nav-btn.active')?.id;
   if (activeNav === 'navBrowse') renderBrowse();
@@ -1416,8 +1477,7 @@ async function initWithDrive() {
   STOULT.setStorage(storage);
   updateVaultUI(user.email || user.name || 'google drive');
   showToast('vault connected — building index...', 'success');
-  await loadConfig();
-  await loadCollections();
+  await Promise.all([loadConfig(), loadCollections()]);
   showToast(`indexed ${vinylIndex.length} records · ${booksIndex.length} books`, 'success');
   const activeNav = document.querySelector('.nav-btn.active')?.id;
   if (activeNav === 'navBrowse') renderBrowse();
@@ -1505,7 +1565,6 @@ async function loadCollections() {
     localImageCache = {};
     browseCache = { vinyl: null, books: null, art: null };
     renderBrowse();
-    renderStats();
   } catch(e) { console.error(e); }
 }
 
@@ -1575,13 +1634,13 @@ function parseFrontmatter(text) {
     const keyMatch = line.match(/^(\w+):\s*(.*)$/);
 
     if (listMatch && inList) {
-      const val = listMatch[1].replace(/^"(.*)"$/, '$1').replace(/\[\[.*?\|(.*?)\]\]/, '$1').replace(/\[\[(.*?)\]\]/, '$1');
+      const val = listMatch[1].replace(/^"(.*)"$/, '$1').replace(/\[\[(.*?)\|[^\]]*\]\]/, '$1').replace(/\[\[(.*?)\]\]/, '$1');
       if (!result[currentKey]) result[currentKey] = [];
       result[currentKey].push(val);
     } else if (keyMatch) {
       currentKey = keyMatch[1];
       const raw = keyMatch[2].trim();
-      const val = raw.replace(/^"(.*)"$/, '$1').replace(/\[\[.*?\|(.*?)\]\]/, '$1').replace(/\[\[(.*?)\]\]/, '$1');
+      const val = raw.replace(/^"(.*)"$/, '$1').replace(/\[\[(.*?)\|[^\]]*\]\]/, '$1').replace(/\[\[(.*?)\]\]/, '$1');
       if (raw === '' || raw === 'null') {
         result[currentKey] = null;
         inList = true;  // next lines may be list items
@@ -3124,29 +3183,71 @@ async function fetchArtistInfo(artistName) {
   } catch { return null; }
 }
 
-async function enrichWithLastfm(artistName) {
-  const el = document.getElementById('lfmSection');
-  if (!el || !LASTFM_KEY) return;
+async function fetchArtistTopAlbums(artistName) {
+  if (!LASTFM_KEY) return [];
+  try {
+    const res = await fetch(`https://ws.audioscrobbler.com/2.0/?method=artist.gettopalbums&artist=${encodeURIComponent(artistName)}&api_key=${LASTFM_KEY}&format=json&autocorrect=1&limit=20`);
+    const data = await res.json();
+    return data.topalbums?.album || [];
+  } catch { return []; }
+}
 
-  const info = await fetchArtistInfo(artistName);
-  if (!info) { el.innerHTML = ''; return; }
+let currentArtistName = null;
 
-  // Bio: strip HTML and trailing "Read more on Last.fm" link
-  let bio = (info.bio?.summary || '')
+async function openArtist(artistName) {
+  currentArtistName = artistName;
+  const el = document.getElementById('artistContent');
+  el.innerHTML = `<div class="browse-empty"><span class="spinner"></span> loading ${artistName}…</div>`;
+  const overlay = document.getElementById('artistOverlay');
+  overlay.classList.add('open');
+  overlay.scrollTop = 0;
+
+  const [info, topAlbums] = await Promise.all([
+    LASTFM_KEY ? fetchArtistInfo(artistName) : Promise.resolve(null),
+    fetchArtistTopAlbums(artistName)
+  ]);
+  renderArtistPage(artistName, info, topAlbums);
+}
+
+function closeArtist() {
+  document.getElementById('artistOverlay').classList.remove('open');
+  currentArtistName = null;
+}
+
+function renderArtistPage(artistName, info, topAlbums) {
+  const el = document.getElementById('artistContent');
+
+  // Artist photo — try each size from largest down
+  const photo = info ? (info.image || []).slice().reverse().find(i => i['#text'])?.['#text'] || '' : '';
+
+  // Bio (full content, strip HTML and last.fm links)
+  const bio = info ? (info.bio?.content || info.bio?.summary || '')
     .replace(/<a[^>]*>.*?<\/a>/gi, '')
     .replace(/<[^>]+>/g, '')
-    .trim();
-  if (bio.length > 300) bio = bio.slice(0, 300).trimEnd() + '…';
+    .trim() : '';
 
-  // Tags
-  const tags = (info.tags?.tag || []).slice(0, 6).map(t => t.name);
+  const listeners = info?.stats?.listeners ? parseInt(info.stats.listeners).toLocaleString() : null;
+  const tags = info ? (info.tags?.tag || []).slice(0, 8).map(t => t.name) : [];
 
-  // Similar artists that have records in the collection
-  const similarNames = (info.similar?.artist || []).map(a => a.name.toLowerCase());
+  // Albums in collection for this artist
+  const inCollection = (browseCache.vinyl || []).filter(r => {
+    const ra = (Array.isArray(r.artist) ? r.artist[0] : r.artist || '').toLowerCase();
+    const target = artistName.toLowerCase();
+    return ra === target || ra.includes(target) || target.includes(ra);
+  });
+
+  // Top albums from Last.fm not already in collection
+  const collectionTitles = new Set(inCollection.map(r => (r.title || '').toLowerCase()));
+  const notInCollection = topAlbums
+    .filter(a => a.name && a.name !== '(null)' && !collectionTitles.has(a.name.toLowerCase()))
+    .slice(0, 8);
+
+  // Similar artists in collection
+  const similarNames = (info?.similar?.artist || []).map(a => a.name.toLowerCase());
   const seen = new Set();
   const similarInCollection = [];
   for (const s of similarNames) {
-    const record = browseCache.vinyl?.find(r => {
+    const record = (browseCache.vinyl || []).find(r => {
       const ra = (Array.isArray(r.artist) ? r.artist[0] : r.artist || '').toLowerCase();
       return ra === s || ra.includes(s) || s.includes(ra);
     });
@@ -3156,32 +3257,65 @@ async function enrichWithLastfm(artistName) {
     }
   }
 
-  let html = '';
-  if (bio) html += `
-    <div class="det-section">
-      <div class="det-section-label">about ${artistName}</div>
-      <div class="det-body-text">${bio}</div>
-    </div>`;
-  if (tags.length) html += `
-    <div class="det-section">
-      <div class="det-section-label">last.fm tags</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
-        ${tags.map(t => `<span class="coll-tag">${t}</span>`).join('')}
+  let html = `
+    <div class="artist-hero">
+      ${photo
+        ? `<img class="artist-photo" src="${photo}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        : ''}
+      <div class="artist-photo-ph"${photo ? ' style="display:none"' : ''}>♪</div>
+      <div class="artist-hero-info">
+        <div class="artist-name">${artistName}</div>
+        ${listeners ? `<div class="artist-listeners">${listeners} listeners on last.fm</div>` : ''}
+        ${tags.length ? `<div class="det-tags" style="margin-bottom:14px">${tags.map(t => `<span class="coll-tag">${t}</span>`).join('')}</div>` : ''}
+        ${bio ? `<div class="det-body-text">${bio.slice(0, 700).trimEnd()}${bio.length > 700 ? '…' : ''}</div>` : ''}
       </div>
     </div>`;
-  if (similarInCollection.length) html += `
+
+  if (inCollection.length) {
+    html += `
     <div class="det-section">
-      <div class="det-section-label">similar artists in your collection</div>
-      <div class="det-related">
-        ${similarInCollection.slice(0, 8).map(r => {
-          const ra = Array.isArray(r.artist) ? r.artist[0] : (r.artist || '');
-          return `<div class="det-rel-item" onclick="openDetail('${r.filename}')">
+      <div class="det-section-label">in your collection · ${inCollection.length} ${inCollection.length === 1 ? 'record' : 'records'}</div>
+      <div class="det-related" style="margin-top:12px">
+        ${inCollection.map(r => `
+          <div class="det-rel-item" onclick="closeArtist();openDetail('${r.filename}')">
             ${r._cover ? `<img src="${r._cover}" alt="" loading="lazy">` : `<div class="det-rel-ph">♪</div>`}
-            <div>${ra || r.title}</div>
+            <div>${r.title || r.filename?.replace('.md','') || ''}</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  if (notInCollection.length) {
+    html += `
+    <div class="det-section">
+      <div class="det-section-label">top albums · not in your collection</div>
+      <div class="det-related" style="margin-top:12px">
+        ${notInCollection.map(a => {
+          const cover = (a.image || []).slice().reverse().find(i => i['#text'])?.['#text'] || '';
+          return `<div class="det-rel-item">
+            ${cover ? `<img src="${cover}" alt="" loading="lazy">` : `<div class="det-rel-ph">♪</div>`}
+            <div>${a.name}</div>
           </div>`;
         }).join('')}
       </div>
     </div>`;
+  }
+
+  if (similarInCollection.length) {
+    html += `
+    <div class="det-section">
+      <div class="det-section-label">similar artists in your collection</div>
+      <div class="det-related" style="margin-top:12px">
+        ${similarInCollection.slice(0, 8).map(r => {
+          const ra = Array.isArray(r.artist) ? (r.artist[0] || '') : (r.artist || '');
+          return `<div class="det-rel-item" onclick="closeArtist();openDetail('${r.filename}')">
+            ${r._cover ? `<img src="${r._cover}" alt="" loading="lazy">` : `<div class="det-rel-ph">♪</div>`}
+            <div>${ra || r.title || ''}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
 
   el.innerHTML = html;
 }
@@ -3218,11 +3352,6 @@ async function openDetail(filename) {
   const overlay = document.getElementById('detailOverlay');
   overlay.classList.add('open');
   overlay.scrollTop = 0;
-
-  if (type === 'vinyl' && LASTFM_KEY) {
-    const artistName = Array.isArray(detailItem.artist) ? detailItem.artist[0] : detailItem.artist;
-    if (artistName) enrichWithLastfm(artistName);
-  }
 }
 
 function closeDetail() {
@@ -3296,7 +3425,7 @@ function renderDetailPanel() {
         </div>
         <div class="det-right">
           <div class="det-title">${title}</div>
-          <div class="det-sub">${artist}${item.year ? ' · ' + item.year : ''}</div>
+          <div class="det-sub"><span class="artist-link" onclick="openArtist('${artist.replace(/'/g, "\\'")}')">${artist}</span>${item.year ? ' · ' + item.year : ''}</div>
           <div class="det-tags">
             ${genres.map(g => `<span class="coll-tag amber">${g}</span>`).join('')}
             ${styles.map(s => `<span class="coll-tag">${s}</span>`).join('')}
@@ -3304,7 +3433,6 @@ function renderDetailPanel() {
           </div>
           ${tracklist ? `<div class="det-section"><div class="det-section-label">tracklist</div><pre class="det-tracklist">${tracklist}</pre></div>` : ''}
           ${discogsNotes ? `<div class="det-section"><div class="det-section-label">notes from discogs</div><div class="det-body-text">${discogsNotes}</div></div>` : ''}
-          <div id="lfmSection"></div>
           ${relatedHtml}
         </div>
       </div>`;
@@ -3449,9 +3577,11 @@ document.getElementById('collectionGrid').addEventListener('click', e => {
   if (card) openDetail(card.dataset.filename);
 });
 
-// Close on Escape
+// Close on Escape — artist page first, then detail panel
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.getElementById('detailOverlay').classList.contains('open')) closeDetail();
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('artistOverlay').classList.contains('open')) { closeArtist(); return; }
+  if (document.getElementById('detailOverlay').classList.contains('open')) closeDetail();
 });
 </script>
 </body>
