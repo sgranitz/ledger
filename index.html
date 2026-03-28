@@ -1360,7 +1360,7 @@ let currentBrowseType = 'vinyl';
 let currentStatsType = 'vinyl';
 let currentAddTab = 'vinyl';
 let currentAction = 'add';
-let currentSort = 'title';
+let currentSort = 'added';
 let activeFilters = {}; // { genre: 'Hip Hop', color: 'Red', ... }
 
 // ════════════════════════════════════════════
@@ -1554,11 +1554,15 @@ async function loadCollections() {
       storage.ensureFolder(BOOKS_BASE),
       storage.ensureFolder(ARTWORK_BASE),
     ]);
-    [vinylIndex, booksIndex, artworkIndex] = await Promise.all([
-      buildIndex(VINYL_BASE, 'artist'),
-      buildIndex(BOOKS_BASE, 'author'),
-      buildIndex(ARTWORK_BASE, 'artist'),
+    // Just count files — content loads lazily when the browse view renders
+    const [vf, bf, af] = await Promise.all([
+      storage.listFiles(VINYL_BASE),
+      storage.listFiles(BOOKS_BASE),
+      storage.listFiles(ARTWORK_BASE),
     ]);
+    vinylIndex   = vf.filter(f => f.file && f.name.endsWith('.md'));
+    booksIndex   = bf.filter(f => f.file && f.name.endsWith('.md'));
+    artworkIndex = af.filter(f => f.file && f.name.endsWith('.md'));
     vinylCollection = [];
     booksCollection = [];
     artworkCollection = [];
@@ -1566,44 +1570,6 @@ async function loadCollections() {
     browseCache = { vinyl: null, books: null, art: null };
     renderBrowse();
   } catch(e) { console.error(e); }
-}
-
-async function buildIndex(base, field) {
-  const files = (await storage.listFiles(base)).filter(f => f.file && f.name.endsWith('.md'));
-  const BATCH = 80;
-  const index = [];
-  for (let i = 0; i < files.length; i += BATCH) {
-    const batch = files.slice(i, i + BATCH);
-    const results = await Promise.all(batch.map(async f => {
-      try {
-        const text = await storage.readFile(`${base}/${f.name}`);
-        const fieldVal = extractField(text || '', field);
-        return { filename: f.name, [field]: (fieldVal || '').toLowerCase() };
-      } catch(e) { return { filename: f.name, [field]: '' }; }
-    }));
-    results.forEach(r => index.push(r));
-  }
-  return index;
-}
-
-// Extract a single YAML field value from partial file text (handles wikilinks like [[Name]])
-function extractField(text, field) {
-  text = text.replace(/\r\n/g, '\n');
-  const lines = text.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    // Inline: "artist: Some Value"
-    const inlineMatch = line.match(new RegExp(`^${field}:\\s*(.+)$`));
-    if (inlineMatch) {
-      return inlineMatch[1].replace(/\[\[|\]\]|"|'/g, '').trim();
-    }
-    // List field: "artist:" followed by "  - [[Value]]" on next line
-    if (line.match(new RegExp(`^${field}:\\s*$`)) && lines[i+1]?.match(/^\s+-/)) {
-      const listVal = lines[i+1].replace(/^\s+-\s*/, '').replace(/\[\[|\]\]|"|'/g, '').trim();
-      return listVal;
-    }
-  }
-  return '';
 }
 
 function parseRating(val) {
