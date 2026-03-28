@@ -886,7 +886,7 @@ select.det-input { cursor: pointer; }
     </div>
 
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--faint);line-height:1.6">
-      Add your API keys to <span style="color:var(--muted);font-family:var(--mono,'Victor Mono',monospace)">References/config.md</span> in your vault.<br>
+      Add your API keys to <span style="color:var(--muted);font-family:var(--mono,'Victor Mono',monospace)">References/Config.md</span> in your vault.<br>
       The file will be created automatically on first connect.
     </div>
   </div>
@@ -1442,9 +1442,9 @@ async function disconnectVault() {
 
 async function loadConfig() {
   try {
-    let text = await storage.readFile('References/config.md');
+    let text = await storage.readFile('References/Config.md');
     if (!text) {
-      await storage.writeFile('References/config.md',
+      await storage.writeFile('References/Config.md',
         '---\ndiscogs_token: \nlastfm_key: \n---\n\nAPI keys for The Ledger. Fill in the values above and reconnect your vault.\n');
       return;
     }
