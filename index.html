@@ -3322,7 +3322,7 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
       <div class="det-related" style="margin-top:12px">
         ${similarInCollection.slice(0, 8).map(r => {
           const ra = Array.isArray(r.artist) ? (r.artist[0] || '') : (r.artist || '');
-          return `<div class="det-rel-item" onclick="closeArtist();openDetail('${r.filename}')">
+          return `<div class="det-rel-item" onclick="openArtist('${ra.replace(/'/g, "\\'")}')">
             ${r._cover ? `<img src="${r._cover}" alt="" loading="lazy">` : `<div class="det-rel-ph">♪</div>`}
             <div>${ra || r.title || ''}</div>
           </div>`;
