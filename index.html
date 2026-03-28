@@ -885,15 +885,9 @@ select.det-input { cursor: pointer; }
       </div>
     </div>
 
-    <div id="discogsTokenWrap" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-      <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Discogs token</div>
-      <div style="display:flex;gap:8px">
-        <input type="password" id="discogsTokenInput" placeholder="paste your Discogs personal access token"
-          style="flex:1;background:var(--bg2);border:1px dashed var(--border2);border-radius:var(--radius);color:var(--cream);font-family:var(--mono,'Victor Mono',monospace);font-size:10px;padding:7px 10px;outline:none"
-          value="">
-        <button class="btn-sm" onclick="saveDiscogsToken(document.getElementById('discogsTokenInput').value)">save</button>
-      </div>
-      <div style="font-size:10px;color:var(--faint);margin-top:6px">Generate one at discogs.com → settings → developers. Stored in your browser only.</div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--faint);line-height:1.6">
+      Add your API keys to <span style="color:var(--muted);font-family:var(--mono,'Victor Mono',monospace)">References/config.md</span> in your vault.<br>
+      The file will be created automatically on first connect.
     </div>
   </div>
 
@@ -1286,17 +1280,8 @@ let storage = null;
 // ════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════
-// Discogs token is stored in localStorage — never hardcoded in source.
-// On first use the user is prompted via the onboarding card.
-let DISCOGS_TOKEN = localStorage.getItem('ledger_discogs_token') || '';
-
-function saveDiscogsToken(val) {
-  DISCOGS_TOKEN = val.trim();
-  if (DISCOGS_TOKEN) {
-    localStorage.setItem('ledger_discogs_token', DISCOGS_TOKEN);
-    document.getElementById('discogsTokenWrap').style.display = 'none';
-  }
-}
+let DISCOGS_TOKEN = '';
+let LASTFM_KEY = '';
 let selectedVinyl = null;
 let selectedBook = null;
 let vinylRating = 0;
@@ -1340,7 +1325,6 @@ async function init() {
       document.getElementById('onboardingCard').style.display = 'block';
       document.getElementById('setupOptions').style.display = 'none';
       document.getElementById('reconnectRow').style.display = '';
-      document.getElementById('discogsTokenWrap').style.display = DISCOGS_TOKEN ? 'none' : 'block';
       return;
     }
   }
@@ -1381,6 +1365,7 @@ async function initWithFSAL(handle) {
   STOULT.setStorage(storage);
   updateVaultUI(handle.name);
   showToast('vault connected — building index...', 'success');
+  await loadConfig();
   await loadCollections();
   showToast(`indexed ${vinylIndex.length} records · ${booksIndex.length} books`, 'success');
   const activeNav = document.querySelector('.nav-btn.active')?.id;
@@ -1431,6 +1416,7 @@ async function initWithDrive() {
   STOULT.setStorage(storage);
   updateVaultUI(user.email || user.name || 'google drive');
   showToast('vault connected — building index...', 'success');
+  await loadConfig();
   await loadCollections();
   showToast(`indexed ${vinylIndex.length} records · ${booksIndex.length} books`, 'success');
   const activeNav = document.querySelector('.nav-btn.active')?.id;
@@ -1443,12 +1429,29 @@ async function disconnectVault() {
   await STOULT.clearHandle();
   localStorage.removeItem(DRIVE_ROOT_KEY);
   storage = null;
+  DISCOGS_TOKEN = '';
+  LASTFM_KEY = '';
   vinylCollection = [];
   booksCollection = [];
   artworkCollection = [];
   localImageCache = {};
+  lfmCache = {};
   browseCache = { vinyl: null, books: null, art: null };
   updateVaultUI();
+}
+
+async function loadConfig() {
+  try {
+    let text = await storage.readFile('References/config.md');
+    if (!text) {
+      await storage.writeFile('References/config.md',
+        '---\ndiscogs_token: \nlastfm_key: \n---\n\nAPI keys for The Ledger. Fill in the values above and reconnect your vault.\n');
+      return;
+    }
+    const fm = parseFrontmatter(text);
+    if (fm?.discogs_token) DISCOGS_TOKEN = String(fm.discogs_token).trim();
+    if (fm?.lastfm_key)    LASTFM_KEY    = String(fm.lastfm_key).trim();
+  } catch(e) {}
 }
 
 function updateVaultUI(displayName) {
@@ -1471,7 +1474,6 @@ function updateVaultUI(displayName) {
       document.getElementById('setupOptions').style.display = '';
       document.getElementById('reconnectRow').style.display = 'none';
       document.getElementById('vaultPathRow').style.display = 'none';
-      document.getElementById('discogsTokenWrap').style.display = DISCOGS_TOKEN ? 'none' : 'block';
     }
   }
 }
@@ -3105,6 +3107,86 @@ function showToast(msg, type='') {
 }
 
 // ════════════════════════════════════════════
+// LAST.FM
+// ════════════════════════════════════════════
+let lfmCache = {};
+
+async function fetchArtistInfo(artistName) {
+  const key = artistName.toLowerCase();
+  if (lfmCache[key]) return lfmCache[key];
+  if (!LASTFM_KEY) return null;
+  try {
+    const res = await fetch(`https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=${encodeURIComponent(artistName)}&api_key=${LASTFM_KEY}&format=json&autocorrect=1`);
+    const data = await res.json();
+    if (data.error || !data.artist) return null;
+    lfmCache[key] = data.artist;
+    return data.artist;
+  } catch { return null; }
+}
+
+async function enrichWithLastfm(artistName) {
+  const el = document.getElementById('lfmSection');
+  if (!el || !LASTFM_KEY) return;
+
+  const info = await fetchArtistInfo(artistName);
+  if (!info) { el.innerHTML = ''; return; }
+
+  // Bio: strip HTML and trailing "Read more on Last.fm" link
+  let bio = (info.bio?.summary || '')
+    .replace(/<a[^>]*>.*?<\/a>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .trim();
+  if (bio.length > 300) bio = bio.slice(0, 300).trimEnd() + '…';
+
+  // Tags
+  const tags = (info.tags?.tag || []).slice(0, 6).map(t => t.name);
+
+  // Similar artists that have records in the collection
+  const similarNames = (info.similar?.artist || []).map(a => a.name.toLowerCase());
+  const seen = new Set();
+  const similarInCollection = [];
+  for (const s of similarNames) {
+    const record = browseCache.vinyl?.find(r => {
+      const ra = (Array.isArray(r.artist) ? r.artist[0] : r.artist || '').toLowerCase();
+      return ra === s || ra.includes(s) || s.includes(ra);
+    });
+    if (record && !seen.has(record.filename)) {
+      seen.add(record.filename);
+      similarInCollection.push(record);
+    }
+  }
+
+  let html = '';
+  if (bio) html += `
+    <div class="det-section">
+      <div class="det-section-label">about ${artistName}</div>
+      <div class="det-body-text">${bio}</div>
+    </div>`;
+  if (tags.length) html += `
+    <div class="det-section">
+      <div class="det-section-label">last.fm tags</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+        ${tags.map(t => `<span class="coll-tag">${t}</span>`).join('')}
+      </div>
+    </div>`;
+  if (similarInCollection.length) html += `
+    <div class="det-section">
+      <div class="det-section-label">similar artists in your collection</div>
+      <div class="det-related">
+        ${similarInCollection.slice(0, 8).map(r => {
+          const ra = Array.isArray(r.artist) ? r.artist[0] : (r.artist || '');
+          return `<div class="det-rel-item" onclick="openDetail('${r.filename}')">
+            ${r._cover ? `<img src="${r._cover}" alt="" loading="lazy">` : `<div class="det-rel-ph">♪</div>`}
+            <div>${ra || r.title}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+  el.innerHTML = html;
+}
+
+// ════════════════════════════════════════════
 // DETAIL PANEL
 // ════════════════════════════════════════════
 let detailItem  = null;
@@ -3136,6 +3218,11 @@ async function openDetail(filename) {
   const overlay = document.getElementById('detailOverlay');
   overlay.classList.add('open');
   overlay.scrollTop = 0;
+
+  if (type === 'vinyl' && LASTFM_KEY) {
+    const artistName = Array.isArray(detailItem.artist) ? detailItem.artist[0] : detailItem.artist;
+    if (artistName) enrichWithLastfm(artistName);
+  }
 }
 
 function closeDetail() {
@@ -3217,6 +3304,7 @@ function renderDetailPanel() {
           </div>
           ${tracklist ? `<div class="det-section"><div class="det-section-label">tracklist</div><pre class="det-tracklist">${tracklist}</pre></div>` : ''}
           ${discogsNotes ? `<div class="det-section"><div class="det-section-label">notes from discogs</div><div class="det-body-text">${discogsNotes}</div></div>` : ''}
+          <div id="lfmSection"></div>
           ${relatedHtml}
         </div>
       </div>`;
