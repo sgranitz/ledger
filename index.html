@@ -941,7 +941,7 @@ select.det-input { cursor: pointer; }
     </div>
 
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--faint);line-height:1.6">
-      Add your API keys to <span style="color:var(--muted);font-family:var(--mono,'Victor Mono',monospace)">References/Config.md</span> in your vault.<br>
+      Add your API keys to <span style="color:var(--muted);font-family:var(--mono,'Victor Mono',monospace)">References/Ledger/Config.md</span> in your vault.<br>
       The file will be created automatically on first connect.
     </div>
   </div>
@@ -1326,17 +1326,46 @@ const STOULT = (() => {
   async function loadHandle() { try { const db = await _openIDB(); return new Promise((res, rej) => { const tx = db.transaction(IDB_STORE, 'readonly'); const req = tx.objectStore(IDB_STORE).get(IDB_KEY); req.onsuccess = e => res(e.target.result || null); req.onerror = rej; }); } catch { return null; } }
   async function clearHandle() { try { const db = await _openIDB(); await new Promise((res, rej) => { const tx = db.transaction(IDB_STORE, 'readwrite'); tx.objectStore(IDB_STORE).delete(IDB_KEY); tx.oncomplete = res; tx.onerror = rej; }); } catch {} }
 
+  function parseFrontmatter(raw) {
+    if (!raw) return { meta: {}, body: '' };
+    raw = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const m = raw.match(/^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)/);
+    if (!m) return { meta: {}, body: raw };
+    const unwiki = s => s.replace(/\[\[(.*?)(?:\|[^\]]*)?\]\]/g, (_, p) => p.split('/').pop().replace(/\.md$/i, ''));
+    const meta = {}, lines = m[1].split('\n'); let i = 0;
+    while (i < lines.length) {
+      const kv = lines[i].match(/^([\w-]+):\s*(.*)/); if (!kv) { i++; continue; }
+      const key = kv[1], val = kv[2].trim();
+      if (val === '') { const items = []; i++; while (i < lines.length && /^\s+-/.test(lines[i])) items.push(unwiki(lines[i++].replace(/^\s+-\s*/, '').trim().replace(/^["']|["']$/g,''))); meta[key] = items; }
+      else if (val.startsWith('[') && val.endsWith(']')) { meta[key] = val.slice(1,-1).split(',').map(s => unwiki(s.trim().replace(/^["']|["']$/g,''))); i++; }
+      else { meta[key] = unwiki(val.replace(/^["']|["']$/g,'')); i++; }
+    }
+    return { meta, body: m[2].trimEnd() };
+  }
+  function buildMarkdown(meta, body = '') {
+    const lines = ['---'];
+    for (const [k, v] of Object.entries(meta)) {
+      if (v === null || v === undefined || v === '') continue;
+      if (Array.isArray(v)) { if (!v.length) continue; lines.push(`${k}:`); v.forEach(item => lines.push(`  - ${item}`)); }
+      else lines.push(`${k}: ${v}`);
+    }
+    lines.push('---'); if (body && body.trim()) lines.push('', body.trim());
+    return lines.join('\n') + '\n';
+  }
+  function slug(s) { return String(s).toLowerCase().trim().replace(/[^a-z0-9\s-]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'') || 'item'; }
+
   let _storage = null;
-  return { initGoogle, signIn, signOut, getUser, getToken, DriveStorage, FSALStorage, loadHandle, clearHandle, getStorage() { return _storage; }, setStorage(s) { _storage = s; } };
+  return { initGoogle, signIn, signOut, getUser, getToken, DriveStorage, FSALStorage, loadHandle, clearHandle, getStorage() { return _storage; }, setStorage(s) { _storage = s; }, parseFrontmatter, buildMarkdown, slug };
 })();
 </script>
 
 <script>
 const GOOGLE_CLIENT_ID = '829248142619-hvklu048j23gft4m0d5jeg8l1hjv2lid.apps.googleusercontent.com';
 const DRIVE_ROOT_KEY   = 'stoult_drive_root';
-const VINYL_BASE       = 'References/Vinyl';
-const BOOKS_BASE       = 'References/Books';
-const ARTWORK_BASE     = 'References/Artwork';
+const LEDGER_BASE      = 'References/Ledger';
+const VINYL_BASE       = `${LEDGER_BASE}/Vinyl`;
+const BOOKS_BASE       = `${LEDGER_BASE}/Books`;
+const ARTWORK_BASE     = `${LEDGER_BASE}/Artwork`;
 let storage = null;
 
 // ════════════════════════════════════════════
@@ -1502,15 +1531,15 @@ async function disconnectVault() {
 
 async function loadConfig() {
   try {
-    let text = await storage.readFile('References/Config.md');
+    let text = await storage.readFile(`${LEDGER_BASE}/Config.md`);
     if (!text) {
-      await storage.writeFile('References/Config.md',
+      await storage.writeFile(`${LEDGER_BASE}/Config.md`,
         '---\ndiscogs_token: \nlastfm_key: \n---\n\nAPI keys for The Ledger. Fill in the values above and reconnect your vault.\n');
       return;
     }
-    const fm = parseFrontmatter(text);
-    if (fm?.discogs_token) DISCOGS_TOKEN = String(fm.discogs_token).trim();
-    if (fm?.lastfm_key)    LASTFM_KEY    = String(fm.lastfm_key).trim();
+    const { meta } = STOULT.parseFrontmatter(text);
+    if (meta?.discogs_token) DISCOGS_TOKEN = String(meta.discogs_token).trim();
+    if (meta?.lastfm_key)    LASTFM_KEY    = String(meta.lastfm_key).trim();
   } catch(e) {}
 }
 
@@ -1549,6 +1578,7 @@ let booksIndex = []; // [{ filename, author }]
 async function loadCollections() {
   if (!storage) return;
   try {
+    await storage.ensureFolder(LEDGER_BASE);
     await Promise.all([
       storage.ensureFolder(VINYL_BASE),
       storage.ensureFolder(BOOKS_BASE),
@@ -1582,52 +1612,6 @@ function parseRating(val) {
   return [...s].filter(c => c === '⭐' || c === '★').length;
 }
 
-function parseFrontmatter(text) {
-  // Normalize line endings (Windows CRLF → LF)
-  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const match = text.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return null;
-  const yaml = match[1];
-  const result = {};
-
-  // Simple YAML parser for our known fields
-  const lines = yaml.split('\n');
-  let currentKey = null;
-  let inList = false;
-
-  for (const line of lines) {
-    const listMatch = line.match(/^  - (.+)$/);
-    const keyMatch = line.match(/^(\w+):\s*(.*)$/);
-
-    if (listMatch && inList) {
-      const val = listMatch[1].replace(/^"(.*)"$/, '$1').replace(/\[\[(.*?)(?:\|[^\]]*)?\]\]/g, (_, path) => path.split('/').pop().replace(/\.md$/i, ''));
-      if (!result[currentKey]) result[currentKey] = [];
-      result[currentKey].push(val);
-    } else if (keyMatch) {
-      currentKey = keyMatch[1];
-      const raw = keyMatch[2].trim();
-      const val = raw.replace(/^"(.*)"$/, '$1').replace(/\[\[(.*?)(?:\|[^\]]*)?\]\]/g, (_, path) => path.split('/').pop().replace(/\.md$/i, ''));
-      if (raw === '' || raw === 'null') {
-        result[currentKey] = null;
-        inList = true;  // next lines may be list items
-      } else {
-        result[currentKey] = val;
-        inList = false;
-      }
-    } else if (line.trim() === '' || (line.length > 0 && !line.startsWith(' '))) {
-      // Non-list, non-key line resets inList
-      inList = false;
-    }
-  }
-
-  // Extract cover image from body (HTTP URL or local Obsidian embed)
-  const coverMatch = text.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
-  if (coverMatch) result._cover = coverMatch[1];
-  const localMatch = text.match(/!\[\[([^\]]+\.(jpg|jpeg|png|webp|gif))\]\]/i);
-  if (localMatch) result._localImage = localMatch[1];
-
-  return result;
-}
 
 // ════════════════════════════════════════════
 // NAVIGATION
@@ -1991,8 +1975,11 @@ async function readAllMdFiles(base) {
     const results = await Promise.all(batch.map(async f => {
       try {
         const text = await storage.readFile(`${base}/${f.name}`);
-        const fm = parseFrontmatter(text);
-        return fm ? { filename: f.name, ...fm } : null;
+        const { meta, body } = STOULT.parseFrontmatter(text);
+        if (!Object.keys(meta).length) return null;
+        const _cover = body.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/)?.[1] || null;
+        const _localImage = body.match(/!\[\[([^\]]+\.(jpg|jpeg|png|webp|gif))\]\]/i)?.[1] || null;
+        return { filename: f.name, ...meta, _body: body, _cover, _localImage };
       } catch(e) { return null; }
     }));
     results.forEach(r => r && items.push(r));
@@ -2026,9 +2013,11 @@ async function readArtworkFiles(base) {
     const results = await Promise.all(batch.map(async f => {
       try {
         const text = await storage.readFile(`${base}/${f.name}`);
-        const fm = parseFrontmatter(text);
-        if (!fm) return null;
-        const item = { filename: f.name, title: f.name.replace('.md', ''), ...fm };
+        const { meta, body } = STOULT.parseFrontmatter(text);
+        if (!Object.keys(meta).length) return null;
+        const _cover = body.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/)?.[1] || null;
+        const _localImage = body.match(/!\[\[([^\]]+\.(jpg|jpeg|png|webp|gif))\]\]/i)?.[1] || null;
+        const item = { filename: f.name, title: f.name.replace('.md', ''), ...meta, _body: body, _cover, _localImage };
         if (!item._cover && item._localImage) {
           item._cover = await resolveLocalImage(item._localImage);
         }
@@ -2534,15 +2523,15 @@ ${notes}
 
   try {
     await storage.ensureFolder(VINYL_BASE);
-    await storage.ensureFolder('References/Musicians');
+    await storage.ensureFolder(`${LEDGER_BASE}/Musicians`);
 
     // Create musician stubs for any new artists
     for (const artist of artists) {
       const artistFilename = sanitize(artist) + '.md';
-      const existing = await storage.readFile(`References/Musicians/${artistFilename}`);
+      const existing = await storage.readFile(`${LEDGER_BASE}/Musicians/${artistFilename}`);
       if (!existing) {
         const stub = `---\ncategory: "[[Musicians]]"\ntags:\n  - artist\nname: "${artist}"\ncreated: ${createdDate}\n---\n\n# ${artist}\n`;
-        await storage.writeFile(`References/Musicians/${artistFilename}`, stub);
+        await storage.writeFile(`${LEDGER_BASE}/Musicians/${artistFilename}`, stub);
       }
     }
 
@@ -2777,14 +2766,14 @@ ${endDate ? `| Finished | ${endDate} |` : ''}
 
   try {
     await storage.ensureFolder(BOOKS_BASE);
-    await storage.ensureFolder('References/Authors');
+    await storage.ensureFolder(`${LEDGER_BASE}/Authors`);
 
     // Create author stub if it doesn't exist
     const authorFilename = sanitize(author) + '.md';
-    const existingAuthor = await storage.readFile(`References/Authors/${authorFilename}`);
+    const existingAuthor = await storage.readFile(`${LEDGER_BASE}/Authors/${authorFilename}`);
     if (!existingAuthor) {
       const authorStub = `---\ncategory: "[[Authors]]"\ntags:\n  - author\nname: "${author}"\ncreated: ${createdDate}\n---\n\n# ${author}\n`;
-      await storage.writeFile(`References/Authors/${authorFilename}`, authorStub);
+      await storage.writeFile(`${LEDGER_BASE}/Authors/${authorFilename}`, authorStub);
     }
 
     await storage.writeFile(`${BOOKS_BASE}/${filename}`, content);
@@ -2839,27 +2828,27 @@ async function enrichBooks() {
       text = raw.replace(/\r\n/g, '\n');
     } catch(e) { failed++; continue; }
 
-    const fm = parseFrontmatter(text);
-    if (!fm) { skipped++; continue; }
+    const { meta, body: fmBody } = STOULT.parseFrontmatter(text);
+    if (!Object.keys(meta).length) { skipped++; continue; }
 
     // Determine what's missing
-    const hasCover     = !!fm._cover;
+    const hasCover     = !!fmBody.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
     const hasSynopsis  = text.includes('## Synopsis') && !text.includes('_No description available._');
-    const hasIsbn      = !!(fm.isbn && String(fm.isbn).trim() && String(fm.isbn).trim() !== '""');
-    const hasPages     = !!(fm.pages && String(fm.pages).trim());
-    const hasPublisher = !!(fm.publisher && String(fm.publisher).trim() && fm.publisher !== '""');
-    const hasGenre     = Array.isArray(fm.genre) ? fm.genre.length > 0 : !!fm.genre;
+    const hasIsbn      = !!(meta.isbn && String(meta.isbn).trim() && String(meta.isbn).trim() !== '""');
+    const hasPages     = !!(meta.pages && String(meta.pages).trim());
+    const hasPublisher = !!(meta.publisher && String(meta.publisher).trim() && meta.publisher !== '""');
+    const hasGenre     = Array.isArray(meta.genre) ? meta.genre.length > 0 : !!meta.genre;
 
     const needsUpdate = !hasCover || !hasSynopsis || !hasIsbn || !hasPages || !hasPublisher || !hasGenre;
     if (!needsUpdate) { skipped++; continue; }
 
-    const title  = (fm.title || name.replace('.md', '')).replace(/["']/g, '');
-    const authorRaw = Array.isArray(fm.author) ? fm.author[0] : (fm.author || '');
+    const title  = (meta.title || name.replace('.md', '')).replace(/["']/g, '');
+    const authorRaw = Array.isArray(meta.author) ? meta.author[0] : (meta.author || '');
     const author = authorRaw.replace(/\[\[|\]\]/g, '').trim();
 
     // Search OL — prefer ISBN, fall back to title+author
     let doc = null;
-    const rawIsbn = String(fm.isbn || '').replace(/[^0-9X]/gi, '');
+    const rawIsbn = String(meta.isbn || '').replace(/[^0-9X]/gi, '');
     if (rawIsbn.length >= 10) {
       try {
         const res  = await fetch(`https://openlibrary.org/search.json?isbn=${rawIsbn}&limit=1`);
