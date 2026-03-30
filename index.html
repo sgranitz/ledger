@@ -1144,17 +1144,25 @@ const STOULT = (() => {
     return ct.includes('json') ? res.json() : res.text();
   }
 
+  const FCACHE_KEY = 'stoult_fcache';
+  function _loadFolderCache(rootId) {
+    try { const c = JSON.parse(sessionStorage.getItem(FCACHE_KEY)||'{}'); return c.root===rootId ? c.ids||{} : {}; } catch { return {}; }
+  }
+  function _saveFolderCache(rootId, ids) {
+    const fi = {}; for (const [k,v] of Object.entries(ids)) { if (!k.split('/').pop().includes('.')) fi[k]=v; }
+    try { sessionStorage.setItem(FCACHE_KEY, JSON.stringify({root:rootId,ids:fi})); } catch {}
+  }
   const DriveStorage = {
     _rootId: null,
     _ids: {},
 
-    init(rootFolderId) { this._rootId = rootFolderId; this._ids = {}; },
+    init(rootFolderId) { this._rootId = rootFolderId; this._ids = _loadFolderCache(rootFolderId); },
 
     async _dir(folderPath) {
       if (!folderPath) return this._rootId;
       if (this._ids[folderPath]) return this._ids[folderPath];
       const parts = folderPath.split('/').filter(Boolean);
-      let parentId = this._rootId, cur = '';
+      let parentId = this._rootId, cur = '', cacheUpdated = false;
       for (const name of parts) {
         cur = cur ? `${cur}/${name}` : name;
         if (this._ids[cur]) { parentId = this._ids[cur]; continue; }
@@ -1166,8 +1174,9 @@ const STOULT = (() => {
           id = cr?.id;
         }
         if (!id) throw new Error(`Cannot find or create folder: ${cur}`);
-        this._ids[cur] = id; parentId = id;
+        this._ids[cur] = id; parentId = id; cacheUpdated = true;
       }
+      if (cacheUpdated) _saveFolderCache(this._rootId, this._ids);
       return parentId;
     },
 
@@ -1526,6 +1535,7 @@ async function disconnectVault() {
   localImageCache = {};
   lfmCache = {};
   browseCache = { vinyl: null, books: null, art: null };
+  _loadingBrowse = {};
   updateVaultUI();
 }
 
@@ -1598,6 +1608,7 @@ async function loadCollections() {
     artworkCollection = [];
     localImageCache = {};
     browseCache = { vinyl: null, books: null, art: null };
+    _loadingBrowse = {};
     renderBrowse();
   } catch(e) { console.error(e); }
 }
@@ -1659,12 +1670,10 @@ function switchAction(action) {
   }
   if (action === 'browse') {
     activeFilters = {};
-    if (storage && vinylCollection.length === 0 && booksCollection.length === 0) loadCollections();
-    else renderBrowse();
+    if (storage) renderBrowse();
   }
   if (action === 'stats') {
-    if (storage && vinylCollection.length === 0 && booksCollection.length === 0) loadCollections();
-    else renderStats();
+    if (storage) renderStats();
   }
 }
 
@@ -1674,6 +1683,8 @@ function switchAction(action) {
 
 // Full parsed collection cache for browse (loaded on demand)
 let browseCache = { vinyl: null, books: null, art: null };
+// Guards against concurrent loads of the same collection
+let _loadingBrowse = {};
 
 function renderBrowse() {
   filterCollection();
@@ -1855,15 +1866,24 @@ async function filterCollection() {
     return;
   }
 
-  // Load full collection into cache if not yet done
-  if (!browseCache[cacheKey]) {
+  // Load full collection into cache if not yet done; guard against concurrent loads
+  if (!browseCache[cacheKey] && !_loadingBrowse[cacheKey]) {
+    _loadingBrowse[cacheKey] = true;
     grid.innerHTML = `<div class="browse-empty"><span class="spinner"></span> loading ${label}...</div>`;
     countEl.textContent = '';
     if (isArt) {
       browseCache.art = await readArtworkFiles(base);
     } else {
-      browseCache[cacheKey] = await readAllMdFiles(base);
+      browseCache[cacheKey] = await readAllMdFiles(base, (partial) => {
+        browseCache[cacheKey] = partial;
+        renderGrid();
+      });
     }
+    _loadingBrowse[cacheKey] = false;
+  } else if (_loadingBrowse[cacheKey]) {
+    // A load is already in progress — show spinner; onBatch will update the grid
+    grid.innerHTML = `<div class="browse-empty"><span class="spinner"></span> loading ${label}...</div>`;
+    return;
   }
 
   renderFilterBar();
@@ -1965,7 +1985,7 @@ async function renderStats() {
   }
 }
 
-async function readAllMdFiles(base) {
+async function readAllMdFiles(base, onBatch) {
   if (!storage) return [];
   const files = (await storage.listFiles(base)).filter(f => f.file && f.name.endsWith('.md'));
   const BATCH = 80;
@@ -1983,6 +2003,7 @@ async function readAllMdFiles(base) {
       } catch(e) { return null; }
     }));
     results.forEach(r => r && items.push(r));
+    if (onBatch) onBatch([...items]);
   }
   return items;
 }
