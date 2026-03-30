@@ -1309,8 +1309,14 @@ const STOULT = (() => {
     async listFiles(rel) {
       const folderId = await this._dir(rel);
       const q = `'${folderId}' in parents and trashed=false`;
-      const r = await dFetch('GET', `/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType)&pageSize=1000`);
-      const files = r?.files || [];
+      const files = [];
+      let pageToken = '';
+      do {
+        const tokenParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+        const r = await dFetch('GET', `/files?q=${encodeURIComponent(q)}&fields=nextPageToken,files(id,name,mimeType)&pageSize=1000${tokenParam}`);
+        files.push(...(r?.files || []));
+        pageToken = r?.nextPageToken || '';
+      } while (pageToken);
       for (const f of files) this._ids[`${rel}/${f.name}`] = f.id;
       return files.map(f => ({ name: f.name, file: f.mimeType !== 'application/vnd.google-apps.folder' ? true : undefined }));
     },
@@ -1979,17 +1985,16 @@ function renderVinylCard(item) {
   const year = item.year || '';
   const color = item.color || '';
   const genres = Array.isArray(item.genre) ? item.genre.slice(0,1) : (item.genre ? [item.genre] : []);
-  const rating = item.rating ? '⭐'.repeat(parseRating(item.rating)) : '';
-  const cover = item._cover || '';
+  const cover = safeMediaUrl(item._cover);
 
-  return `<div class="coll-card" data-filename="${item.filename}">
+  return `<div class="coll-card" data-filename="${h(item.filename)}">
     ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder">♪</div>`}
     <div class="coll-info">
-      <div class="coll-title">${title}</div>
-      <div class="coll-sub">${artist}${year ? ' · ' + year : ''}</div>
+      <div class="coll-title">${h(title)}</div>
+      <div class="coll-sub">${h(artist)}${year ? ' · ' + h(year) : ''}</div>
       <div class="coll-tags">
-        ${color ? `<span class="coll-tag">${color}</span>` : ''}
-        ${genres.map(g => `<span class="coll-tag amber">${g}</span>`).join('')}
+        ${color ? `<span class="coll-tag">${h(color)}</span>` : ''}
+        ${genres.map(g => `<span class="coll-tag amber">${h(g)}</span>`).join('')}
       </div>
     </div>
   </div>`;
@@ -2001,18 +2006,18 @@ function renderBookCard(item) {
   const year = item.year || '';
   const status = item.status || '';
   const form = item.form || '';
-  const cover = item._cover || '';
+  const cover = safeMediaUrl(item._cover);
 
   const statusColor = status === 'Read' ? 'amber' : '';
 
-  return `<div class="coll-card" data-filename="${item.filename}">
+  return `<div class="coll-card" data-filename="${h(item.filename)}">
     ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder">☰</div>`}
     <div class="coll-info">
-      <div class="coll-title">${title}</div>
-      <div class="coll-sub">${author}${year ? ' · ' + year : ''}</div>
+      <div class="coll-title">${h(title)}</div>
+      <div class="coll-sub">${h(author)}${year ? ' · ' + h(year) : ''}</div>
       <div class="coll-tags">
-        ${status ? `<span class="coll-tag ${statusColor}">${status}</span>` : ''}
-        ${form ? `<span class="coll-tag">${form}</span>` : ''}
+        ${status ? `<span class="coll-tag ${statusColor}">${h(status)}</span>` : ''}
+        ${form ? `<span class="coll-tag">${h(form)}</span>` : ''}
       </div>
     </div>
   </div>`;
@@ -2023,15 +2028,15 @@ function renderArtworkCard(item) {
   const artist  = Array.isArray(item.artist) ? item.artist[0] : (item.artist || '—');
   const year    = item.year || '';
   const mediums = Array.isArray(item.medium) ? item.medium.slice(0,2) : (item.medium ? [item.medium] : []);
-  const cover   = item._cover || '';
+  const cover   = safeMediaUrl(item._cover);
 
-  return `<div class="coll-card" data-filename="${item.filename}">
+  return `<div class="coll-card" data-filename="${h(item.filename)}">
     ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder" style="font-size:28px">🎨</div>`}
     <div class="coll-info">
-      <div class="coll-title">${title}</div>
-      <div class="coll-sub">${artist}${year ? ' · ' + year : ''}</div>
+      <div class="coll-title">${h(title)}</div>
+      <div class="coll-sub">${h(artist)}${year ? ' · ' + h(year) : ''}</div>
       <div class="coll-tags">
-        ${mediums.map(m => `<span class="coll-tag amber">${m}</span>`).join('')}
+        ${mediums.map(m => `<span class="coll-tag amber">${h(m)}</span>`).join('')}
       </div>
     </div>
   </div>`;
@@ -2197,7 +2202,7 @@ function renderArtworkStats() {
       <div class="bar-chart">
         ${topArtists.map(([a,n]) => `
           <div class="bar-row">
-            <div class="bar-label">${a}</div>
+            <div class="bar-label">${h(a)}</div>
             <div class="bar-track"><div class="bar-fill green" style="width:${Math.round(n/maxArtist*100)}%"></div></div>
             <div class="bar-count">${n}</div>
           </div>`).join('')}
@@ -2297,7 +2302,7 @@ function renderVinylStats() {
       <div class="bar-chart">
         ${topGenres.map(([g,n]) => `
           <div class="bar-row">
-            <div class="bar-label">${g}</div>
+            <div class="bar-label">${h(g)}</div>
             <div class="bar-track"><div class="bar-fill" style="width:${Math.round(n/maxGenre*100)}%"></div></div>
             <div class="bar-count">${n}</div>
           </div>`).join('')}
@@ -2332,7 +2337,7 @@ function renderVinylStats() {
       <div class="bar-chart">
         ${topArtists.map(([a,n]) => `
           <div class="bar-row">
-            <div class="bar-label">${a}</div>
+            <div class="bar-label">${h(a)}</div>
             <div class="bar-track"><div class="bar-fill green" style="width:${Math.round(n/maxArtist*100)}%"></div></div>
             <div class="bar-count">${n}</div>
           </div>`).join('')}
@@ -2346,12 +2351,12 @@ function renderVinylStats() {
         ${favorites.map(item => {
           const title = item.title || item.filename?.replace('.md','') || '—';
           const artist = Array.isArray(item.artist) ? item.artist[0]?.replace(/\[\[|\]\]/g,'') : (item.artist || '—');
-          const cover = item._cover || '';
+          const cover = safeMediaUrl(item._cover);
           const rating = parseRating(item.rating);
           return `<div class="fav-card">
             ${cover ? `<img class="fav-cover" src="${cover}" alt="" loading="lazy">` : `<div class="fav-cover fav-cover-placeholder">♪</div>`}
-            <div class="fav-title">${title}</div>
-            <div class="fav-sub">${artist}</div>
+            <div class="fav-title">${h(title)}</div>
+            <div class="fav-sub">${h(artist)}</div>
             <div class="fav-rating">${'★'.repeat(rating)}</div>
           </div>`;
         }).join('')}
@@ -2426,7 +2431,7 @@ function renderBookStats() {
       <div class="bar-chart">
         ${topGenres.map(([g,n]) => `
           <div class="bar-row">
-            <div class="bar-label">${g}</div>
+            <div class="bar-label">${h(g)}</div>
             <div class="bar-track"><div class="bar-fill green" style="width:${Math.round(n/maxGenre*100)}%"></div></div>
             <div class="bar-count">${n}</div>
           </div>`).join('')}
@@ -2440,11 +2445,11 @@ function renderBookStats() {
         ${favorites.map(item => {
           const title = item.title || item.filename?.replace('.md','') || '—';
           const author = Array.isArray(item.author) ? item.author[0]?.replace(/\[\[|\]\]/g,'') : (item.author || '—');
-          const cover = item._cover || '';
+          const cover = safeMediaUrl(item._cover);
           return `<div class="fav-card">
             ${cover ? `<img class="fav-cover" src="${cover}" alt="" loading="lazy">` : `<div class="fav-cover fav-cover-placeholder">☰</div>`}
-            <div class="fav-title">${title}</div>
-            <div class="fav-sub">${author}</div>
+            <div class="fav-title">${h(title)}</div>
+            <div class="fav-sub">${h(author)}</div>
             <div class="fav-rating">★★★★★</div>
           </div>`;
         }).join('')}
@@ -2492,19 +2497,18 @@ function renderVinylResults(results) {
         ${results.map((r, i) => {
           const parts = r.title.split(' - ');
           const albumTitle = parts.length > 1 ? parts.slice(1).join(' - ') : parts[0];
-          const cover = r.cover_image && !r.cover_image.includes('spacer') ? r.cover_image : null;
+          const cover = r.cover_image && !r.cover_image.includes('spacer') ? safeMediaUrl(r.cover_image) : '';
           return `<div class="result-card" onclick="selectVinyl(${i})" id="vr-${i}">
             ${cover ? `<img class="result-cover" src="${cover}" alt="" loading="lazy">` : `<div class="result-cover-placeholder">♪</div>`}
             <div class="result-info">
-              <div class="result-title">${albumTitle}</div>
-              <div class="result-sub">${r.year || '—'}</div>
+              <div class="result-title">${h(albumTitle)}</div>
+              <div class="result-sub">${h(r.year || '—')}</div>
             </div>
           </div>`;
         }).join('')}
       </div>
     </div>`;
 }
-
 async function selectVinyl(index) {
   document.querySelectorAll('[id^="vr-"]').forEach(el => el.classList.remove('selected'));
   document.getElementById(`vr-${index}`).classList.add('selected');
@@ -2525,7 +2529,7 @@ function renderVinylConfirm(data, fallback) {
   const title = data ? data.title : (fallback ? fallback.title.split(' - ').slice(1).join(' - ') : '');
   const artists = data?.artists ? data.artists.map(a => a.name.replace(/\s\(\d+\)$/, '')).join(', ') : document.getElementById('vArtist').value;
   const year = data?.year || fallback?.year || '—';
-  const cover = data?.images?.[0]?.uri || fallback?.cover_image || '';
+  const cover = safeMediaUrl(data?.images?.[0]?.uri || fallback?.cover_image || '');
   const genres = data?.genres?.join(', ') || '';
   const color = document.getElementById('vColor').value.trim();
   vinylRating = 0;
@@ -2536,14 +2540,14 @@ function renderVinylConfirm(data, fallback) {
       <div class="confirm-header">
         ${cover && !cover.includes('spacer') ? `<img class="confirm-cover" src="${cover}" alt="">` : `<div class="confirm-cover-placeholder">♪</div>`}
         <div class="confirm-meta">
-          <div class="confirm-title">${title}</div>
-          <div class="confirm-sub">${artists} · ${year}</div>
-          ${genres ? `<span class="confirm-tag">${genres}</span>` : ''}
+          <div class="confirm-title">${h(title)}</div>
+          <div class="confirm-sub">${h(artists)} · ${h(year)}</div>
+          ${genres ? `<span class="confirm-tag">${h(genres)}</span>` : ''}
         </div>
       </div>
       <div class="field">
         <label>Vinyl Color</label>
-        <input type="text" id="vColorFinal" value="${color}" placeholder="e.g. Black" />
+        <input type="text" id="vColorFinal" value="${h(color)}" placeholder="e.g. Black" />
       </div>
       <div class="field">
         <label>Rating</label>
@@ -2555,12 +2559,6 @@ function renderVinylConfirm(data, fallback) {
       <button class="btn-secondary" onclick="clearVinylConfirm()">← back to results</button>
     </div>`;
 }
-
-function setVinylRating(n) {
-  vinylRating = n;
-  document.querySelectorAll('#vStars .star').forEach((s, i) => s.classList.toggle('lit', i < n));
-}
-
 function clearVinylConfirm() {
   document.getElementById('vConfirm').innerHTML = '';
   selectedVinyl = null;
@@ -2693,19 +2691,18 @@ function renderBookResults(docs) {
       <div class="section-label">select edition</div>
       <div class="results-grid">
         ${docs.map((d, i) => {
-          const cover = d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : null;
+          const cover = d.cover_i ? safeMediaUrl(`https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg`) : '';
           return `<div class="result-card" onclick="selectBook(${i})" id="br-${i}">
             ${cover ? `<img class="result-cover" src="${cover}" alt="" loading="lazy">` : `<div class="result-cover-placeholder">☰</div>`}
             <div class="result-info">
-              <div class="result-title">${d.title}</div>
-              <div class="result-sub">${d.first_publish_year || '—'}</div>
+              <div class="result-title">${h(d.title)}</div>
+              <div class="result-sub">${h(d.first_publish_year || '—')}</div>
             </div>
           </div>`;
         }).join('')}
       </div>
     </div>`;
 }
-
 async function selectBook(index) {
   document.querySelectorAll('[id^="br-"]').forEach(el => el.classList.remove('selected'));
   document.getElementById(`br-${index}`).classList.add('selected');
@@ -2728,7 +2725,7 @@ async function selectBook(index) {
 }
 
 function renderBookConfirm(doc) {
-  const cover = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null;
+  const cover = doc.cover_i ? safeMediaUrl(`https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`) : '';
   const author = document.getElementById('bAuthor').value;
   const today = new Date().toISOString().slice(0, 10);
 
@@ -2738,9 +2735,9 @@ function renderBookConfirm(doc) {
       <div class="confirm-header">
         ${cover ? `<img class="confirm-cover" src="${cover}" alt="">` : `<div class="confirm-cover-placeholder">☰</div>`}
         <div class="confirm-meta">
-          <div class="confirm-title">${doc.title}</div>
-          <div class="confirm-sub">${author} · ${doc.first_publish_year || '—'}</div>
-          ${doc.number_of_pages_median ? `<span class="confirm-tag">${doc.number_of_pages_median} pages</span>` : ''}
+          <div class="confirm-title">${h(doc.title)}</div>
+          <div class="confirm-sub">${h(author)} · ${h(doc.first_publish_year || '—')}</div>
+          ${doc.number_of_pages_median ? `<span class="confirm-tag">${h(doc.number_of_pages_median)} pages</span>` : ''}
         </div>
       </div>
       <div class="field-row">
@@ -2771,7 +2768,7 @@ function renderBookConfirm(doc) {
         </div>
         <div class="field">
           <label>End Date</label>
-          <input type="date" id="bEnd" value="${today}" />
+          <input type="date" id="bEnd" value="${h(today)}" />
         </div>
       </div>
       <div class="field">
@@ -2788,12 +2785,6 @@ function renderBookConfirm(doc) {
       <button class="btn-secondary" onclick="clearBookConfirm()">← back to results</button>
     </div>`;
 }
-
-function setBookRating(n) {
-  bookRating = n;
-  document.querySelectorAll('#bStars .star').forEach((s, i) => s.classList.toggle('lit', i < n));
-}
-
 function clearBookConfirm() {
   document.getElementById('bConfirm').innerHTML = '';
   selectedBook = null;
@@ -2977,7 +2968,7 @@ async function enrichBooks() {
 
     if (!doc) {
       failed++;
-      addLog(`<span style="color:var(--faint)">✗ ${title}</span>`);
+      addLog(`<span style="color:var(--faint)">✗ ${h(title)}</span>`);
       await sleep(300);
       continue;
     }
@@ -3047,10 +3038,10 @@ async function enrichBooks() {
     try {
       await storage.writeFile(`${BOOKS_BASE}/${name}`, newText);
       updated++;
-      addLog(`<span style="color:var(--green)">✓ ${title}</span>`);
+      addLog(`<span style="color:var(--green)">✓ ${h(title)}</span>`);
     } catch(e) {
       failed++;
-      addLog(`<span style="color:var(--red)">✗ ${title} (write error)</span>`);
+      addLog(`<span style="color:var(--red)">✗ ${h(title)} (write error)</span>`);
     }
 
     await sleep(450); // be kind to OL API
@@ -3161,7 +3152,7 @@ created: ${createdDate}
     resetArtworkForm();
     document.getElementById('artConfirm').innerHTML = `
       <div class="section" style="border-color:var(--border2)">
-        <div style="font-size:11px;color:var(--green);margin-bottom:8px">✓ ${title} saved to vault</div>
+        <div style="font-size:11px;color:var(--green);margin-bottom:8px">✓ ${h(title)} saved to vault</div>
         <button class="btn-sm" onclick="switchAction('browse');switchType('art')">browse artwork →</button>
       </div>`;
   } catch(e) {
@@ -3199,17 +3190,18 @@ function renderRecent() {
   if (recentEntries.length === 0) return;
   const section = document.getElementById('recentSection');
   section.style.display = 'block';
-  document.getElementById('recentList').innerHTML = recentEntries.map(e => `
+  document.getElementById('recentList').innerHTML = recentEntries.map(e => {
+    const cover = e.cover && !e.cover.includes('spacer') ? safeMediaUrl(e.cover) : '';
+    return `
     <div class="recent-item">
-      ${e.cover && !e.cover.includes('spacer')
-        ? `<img class="recent-cover" src="${e.cover}" alt="">`
-        : `<div class="recent-cover" style="display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--faint)">${e.type==='vinyl'?'♪':'☰'}</div>`}
+      ${cover ? `<img class="recent-cover" src="${cover}" alt="">` : `<div class="recent-cover" style="display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--faint)">${e.type==='vinyl'?'♪':'☰'}</div>`}
       <div>
-        <div class="recent-title">${e.title}</div>
-        <div class="recent-sub">${e.sub}</div>
+        <div class="recent-title">${h(e.title)}</div>
+        <div class="recent-sub">${h(e.sub)}</div>
       </div>
-      <span class="badge">${e.type}</span>
-    </div>`).join('');
+      <span class="badge">${h(e.type)}</span>
+    </div>`;
+  }).join('');
 }
 
 // ════════════════════════════════════════════
@@ -3222,6 +3214,31 @@ function showToast(msg, type='') {
   t.className = `toast show ${type}`;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function h(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function jsq(value) {
+  return JSON.stringify(String(value ?? ''));
+}
+
+function safeMediaUrl(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  if (/^data:image\//i.test(raw)) return raw;
+  try {
+    const url = new URL(raw, window.location.href);
+    return ['http:', 'https:', 'blob:'].includes(url.protocol) ? url.href : '';
+  } catch {
+    return '';
+  }
 }
 
 // ════════════════════════════════════════════
@@ -3270,7 +3287,7 @@ let currentArtistName = null;
 async function openArtist(artistName) {
   currentArtistName = artistName;
   const el = document.getElementById('artistContent');
-  el.innerHTML = `<div class="browse-empty"><span class="spinner"></span> loading ${artistName}…</div>`;
+  el.innerHTML = `<div class="browse-empty"><span class="spinner"></span> loading ${h(artistName)}…</div>`;
   const overlay = document.getElementById('artistOverlay');
   overlay.classList.add('open');
   overlay.scrollTop = 0;
@@ -3291,7 +3308,6 @@ function closeArtist() {
 function renderArtistPage(artistName, info, topAlbums, photo) {
   const el = document.getElementById('artistContent');
 
-  // Bio (full content, strip HTML and last.fm links)
   const bio = info ? (info.bio?.content || info.bio?.summary || '')
     .replace(/<a[^>]*>.*?<\/a>/gi, '')
     .replace(/<[^>]+>/g, '')
@@ -3299,22 +3315,19 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
 
   const listeners = info?.stats?.listeners ? parseInt(info.stats.listeners).toLocaleString() : null;
   const tags = info ? (info.tags?.tag || []).slice(0, 8).map(t => t.name) : [];
-
+  const photoUrl = safeMediaUrl(photo);
   const target = artistName.toLowerCase();
 
-  // Albums in collection for this artist (exact or substring match, guard against empty ra)
   const inCollection = (browseCache.vinyl || []).filter(r => {
     const ra = (Array.isArray(r.artist) ? r.artist[0] : r.artist || '').toLowerCase();
     return artistMatches(ra, target);
   });
 
-  // Top albums from Last.fm not already in collection
   const collectionTitles = new Set(inCollection.map(r => (r.title || '').toLowerCase()));
   const notInCollection = topAlbums
     .filter(a => a.name && a.name !== '(null)' && !collectionTitles.has(a.name.toLowerCase()))
     .slice(0, 8);
 
-  // Similar artists in collection
   const similarNames = (info?.similar?.artist || []).map(a => a.name.toLowerCase());
   const seen = new Set();
   const similarInCollection = [];
@@ -3332,15 +3345,13 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
 
   let html = `
     <div class="artist-hero">
-      ${photo
-        ? `<img class="artist-photo" src="${photo}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-        : ''}
-      <div class="artist-photo-ph"${photo ? ' style="display:none"' : ''}>♪</div>
+      ${photoUrl ? `<img class="artist-photo" src="${photoUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+      <div class="artist-photo-ph"${photoUrl ? ' style="display:none"' : ''}>♪</div>
       <div class="artist-hero-info">
-        <div class="artist-name">${artistName}</div>
-        ${listeners ? `<div class="artist-listeners">${listeners} listeners on last.fm</div>` : ''}
-        ${tags.length ? `<div class="det-tags" style="margin-bottom:14px">${tags.map(t => `<span class="coll-tag">${t}</span>`).join('')}</div>` : ''}
-        ${bio ? `<div class="det-body-text">${bio.slice(0, 700).trimEnd()}${bio.length > 700 ? '…' : ''}</div>` : ''}
+        <div class="artist-name">${h(artistName)}</div>
+        ${listeners ? `<div class="artist-listeners">${h(listeners)} listeners on last.fm</div>` : ''}
+        ${tags.length ? `<div class="det-tags" style="margin-bottom:14px">${tags.map(t => `<span class="coll-tag">${h(t)}</span>`).join('')}</div>` : ''}
+        ${bio ? `<div class="det-body-text">${h(bio.slice(0, 700).trimEnd())}${bio.length > 700 ? '…' : ''}</div>` : ''}
       </div>
     </div>`;
 
@@ -3349,11 +3360,14 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
     <div class="det-section">
       <div class="det-section-label">in your collection · ${inCollection.length} ${inCollection.length === 1 ? 'record' : 'records'}</div>
       <div class="det-related" style="margin-top:12px">
-        ${inCollection.map(r => `
-          <div class="det-rel-item" onclick="closeArtist();openDetail('${r.filename}')">
-            ${r._cover ? `<img src="${r._cover}" alt="" loading="lazy">` : `<div class="det-rel-ph">♪</div>`}
-            <div>${r.title || r.filename?.replace('.md','') || ''}</div>
-          </div>`).join('')}
+        ${inCollection.map(r => {
+          const relCover = safeMediaUrl(r._cover);
+          return `
+          <div class="det-rel-item" onclick="closeArtist();openDetail(${jsq(r.filename)})">
+            ${relCover ? `<img src="${relCover}" alt="" loading="lazy">` : `<div class="det-rel-ph">♪</div>`}
+            <div>${h(r.title || r.filename?.replace('.md','') || '')}</div>
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
   }
@@ -3364,10 +3378,10 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
       <div class="det-section-label">top albums · not in your collection</div>
       <div class="det-related" style="margin-top:12px">
         ${notInCollection.map(a => {
-          const cover = (a.image || []).slice().reverse().find(i => i['#text'])?.['#text'] || '';
+          const cover = safeMediaUrl((a.image || []).slice().reverse().find(i => i['#text'])?.['#text'] || '');
           return `<div class="det-rel-item">
             ${cover ? `<img src="${cover}" alt="" loading="lazy">` : `<div class="det-rel-ph">♪</div>`}
-            <div>${a.name}</div>
+            <div>${h(a.name)}</div>
           </div>`;
         }).join('')}
       </div>
@@ -3381,9 +3395,10 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
       <div class="det-related" style="margin-top:12px">
         ${similarInCollection.slice(0, 8).map(r => {
           const ra = Array.isArray(r.artist) ? (r.artist[0] || '') : (r.artist || '');
-          return `<div class="det-rel-item" onclick="openArtist('${ra.replace(/'/g, "\\'")}')">
-            ${r._cover ? `<img src="${r._cover}" alt="" loading="lazy">` : `<div class="det-rel-ph">♪</div>`}
-            <div>${ra || r.title || ''}</div>
+          const relCover = safeMediaUrl(r._cover);
+          return `<div class="det-rel-item" onclick="openArtist(${jsq(ra)})">
+            ${relCover ? `<img src="${relCover}" alt="" loading="lazy">` : `<div class="det-rel-ph">♪</div>`}
+            <div>${h(ra || r.title || '')}</div>
           </div>`;
         }).join('')}
       </div>
@@ -3392,46 +3407,6 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
 
   el.innerHTML = html;
 }
-
-// ════════════════════════════════════════════
-// DETAIL PANEL
-// ════════════════════════════════════════════
-let detailItem  = null;
-let detailRating = 0;
-
-function extractBodySection(text, heading) {
-  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(`## ${escaped}\\n([\\s\\S]*?)(?=\\n---\\n|\\n## |$)`);
-  const m = text.match(re);
-  return m ? m[1].trim() : '';
-}
-
-async function openDetail(filename) {
-  const type    = currentBrowseType;
-  const cacheKey = type === 'art' ? 'art' : type;
-  const cache   = browseCache[cacheKey];
-  const item    = cache?.find(i => i.filename === filename);
-  if (!item) return;
-
-  detailItem   = { ...item, _type: type };
-  detailRating = parseRating(item.rating) || 0;
-
-  const base = type === 'vinyl' ? VINYL_BASE : type === 'books' ? BOOKS_BASE : ARTWORK_BASE;
-  try {
-    detailItem._fullText = await storage.readFile(`${base}/${filename}`) || '';
-  } catch(e) { detailItem._fullText = ''; }
-
-  renderDetailPanel();
-  const overlay = document.getElementById('detailOverlay');
-  overlay.classList.add('open');
-  overlay.scrollTop = 0;
-}
-
-function closeDetail() {
-  document.getElementById('detailOverlay').classList.remove('open');
-  detailItem = null;
-}
-
 function setDetailRating(n) {
   detailRating = detailRating === n ? 0 : n;
   document.querySelectorAll('.det-star').forEach((s, i) => s.classList.toggle('lit', i < detailRating));
@@ -3445,7 +3420,8 @@ function renderDetailPanel() {
   const panel   = document.getElementById('detailContent');
   const text    = item._fullText || '';
 
-  const cover = item._cover || '';
+  const cover = safeMediaUrl(item._cover);
+  const coverUrl = safeMediaUrl(cover);
   const title = item.title || item.filename?.replace('.md','') || '—';
   const starsHtml = Array.from({length:5}, (_,i) =>
     `<span class="det-star${i < detailRating ? ' lit' : ''}" onclick="setDetailRating(${i+1})">★</span>`
@@ -3463,13 +3439,16 @@ function renderDetailPanel() {
 
   const relatedHtml = related.length ? `
     <div class="det-section">
-      <div class="det-section-label">more by ${myPersons[0] || (isVinyl ? 'this artist' : 'this author')}</div>
+      <div class="det-section-label">more by ${h(myPersons[0] || (isVinyl ? 'this artist' : 'this author'))}</div>
       <div class="det-related">
-        ${related.map(r => `
-          <div class="det-rel-item" onclick="openDetail('${r.filename}')">
-            ${r._cover ? `<img src="${r._cover}" alt="" loading="lazy">` : `<div class="det-rel-ph">${isVinyl?'♪':'☰'}</div>`}
-            <div>${r.title || r.filename}</div>
-          </div>`).join('')}
+        ${related.map(r => {
+          const relCover = safeMediaUrl(r._cover);
+          return `
+          <div class="det-rel-item" onclick="openDetail(${jsq(r.filename)})">
+            ${relCover ? `<img src="${relCover}" alt="" loading="lazy">` : `<div class="det-rel-ph">${isVinyl?'♪':'☰'}</div>`}
+            <div>${h(r.title || r.filename)}</div>
+          </div>`;
+        }).join('')}
       </div>
     </div>` : '';
 
@@ -3483,11 +3462,11 @@ function renderDetailPanel() {
     panel.innerHTML = `
       <div class="det-layout">
         <div class="det-left">
-          ${cover ? `<img class="det-cover" src="${cover}" alt="">` : `<div class="det-cover-ph">♪</div>`}
+          ${coverUrl ? `<img class="det-cover" src="${coverUrl}" alt="">` : `<div class="det-cover-ph">♪</div>`}
           <div class="det-meta">
             <div class="det-field">
               <label>Color</label>
-              <input id="detColor" class="det-input" value="${item.color || ''}" placeholder="vinyl color">
+              <input id="detColor" class="det-input" value="${h(item.color || '')}" placeholder="vinyl color">
             </div>
             <div class="det-field">
               <label>Rating</label>
@@ -3497,15 +3476,15 @@ function renderDetailPanel() {
           <button class="btn-save det-save" onclick="saveDetail()">save changes</button>
         </div>
         <div class="det-right">
-          <div class="det-title">${title}</div>
-          <div class="det-sub"><span class="artist-link" onclick="openArtist('${artist.replace(/'/g, "\\'")}')">${artist}</span>${item.year ? ' · ' + item.year : ''}</div>
+          <div class="det-title">${h(title)}</div>
+          <div class="det-sub"><span class="artist-link" onclick="openArtist(${jsq(artist)})">${h(artist)}</span>${item.year ? ' · ' + h(item.year) : ''}</div>
           <div class="det-tags">
-            ${genres.map(g => `<span class="coll-tag amber">${g}</span>`).join('')}
-            ${styles.map(s => `<span class="coll-tag">${s}</span>`).join('')}
-            ${item.master_id ? `<a href="https://www.discogs.com/master/${item.master_id}" target="_blank" class="coll-tag det-tag-link">discogs ↗</a>` : ''}
+            ${genres.map(g => `<span class="coll-tag amber">${h(g)}</span>`).join('')}
+            ${styles.map(s => `<span class="coll-tag">${h(s)}</span>`).join('')}
+            ${item.master_id ? `<a href="https://www.discogs.com/master/${encodeURIComponent(String(item.master_id))}" target="_blank" rel="noopener noreferrer" class="coll-tag det-tag-link">discogs ↗</a>` : ''}
           </div>
-          ${tracklist ? `<div class="det-section"><div class="det-section-label">tracklist</div><pre class="det-tracklist">${tracklist}</pre></div>` : ''}
-          ${discogsNotes ? `<div class="det-section"><div class="det-section-label">notes from discogs</div><div class="det-body-text">${discogsNotes}</div></div>` : ''}
+          ${tracklist ? `<div class="det-section"><div class="det-section-label">tracklist</div><pre class="det-tracklist">${h(tracklist)}</pre></div>` : ''}
+          ${discogsNotes ? `<div class="det-section"><div class="det-section-label">notes from discogs</div><div class="det-body-text">${h(discogsNotes)}</div></div>` : ''}
           ${relatedHtml}
         </div>
       </div>`;
@@ -3518,7 +3497,7 @@ function renderDetailPanel() {
     panel.innerHTML = `
       <div class="det-layout">
         <div class="det-left">
-          ${cover ? `<img class="det-cover" src="${cover}" alt="">` : `<div class="det-cover-ph">☰</div>`}
+          ${coverUrl ? `<img class="det-cover" src="${coverUrl}" alt="">` : `<div class="det-cover-ph">☰</div>`}
           <div class="det-meta">
             <div class="det-field">
               <label>Status</label>
@@ -3536,11 +3515,11 @@ function renderDetailPanel() {
             </div>
             <div class="det-field">
               <label>Started</label>
-              <input id="detStart" class="det-input" type="date" value="${item.start_date||''}">
+              <input id="detStart" class="det-input" type="date" value="${h(item.start_date||'')}">
             </div>
             <div class="det-field">
               <label>Finished</label>
-              <input id="detEnd" class="det-input" type="date" value="${item.end_date||''}">
+              <input id="detEnd" class="det-input" type="date" value="${h(item.end_date||'')}">
             </div>
             <div class="det-field">
               <label>Rating</label>
@@ -3550,16 +3529,16 @@ function renderDetailPanel() {
           <button class="btn-save det-save" onclick="saveDetail()">save changes</button>
         </div>
         <div class="det-right">
-          <div class="det-title">${title}</div>
-          <div class="det-sub">${author}${item.year ? ' · ' + item.year : ''}</div>
+          <div class="det-title">${h(title)}</div>
+          <div class="det-sub">${h(author)}${item.year ? ' · ' + h(item.year) : ''}</div>
           <div class="det-tags">
-            ${item.pages ? `<span class="coll-tag">${item.pages} pages</span>` : ''}
-            ${item.publisher ? `<span class="coll-tag">${item.publisher}</span>` : ''}
+            ${item.pages ? `<span class="coll-tag">${h(item.pages)} pages</span>` : ''}
+            ${item.publisher ? `<span class="coll-tag">${h(item.publisher)}</span>` : ''}
           </div>
-          ${synopsis ? `<div class="det-section"><div class="det-section-label">synopsis</div><div class="det-body-text">${synopsis}</div></div>` : ''}
+          ${synopsis ? `<div class="det-section"><div class="det-section-label">synopsis</div><div class="det-body-text">${h(synopsis)}</div></div>` : ''}
           <div class="det-section">
             <div class="det-section-label">my notes</div>
-            <textarea id="detNotes" class="det-notes" placeholder="add your notes...">${cleanNotes}</textarea>
+            <textarea id="detNotes" class="det-notes" placeholder="add your notes...">${h(cleanNotes)}</textarea>
           </div>
           ${relatedHtml}
         </div>
@@ -3571,24 +3550,23 @@ function renderDetailPanel() {
     panel.innerHTML = `
       <div class="det-layout">
         <div class="det-left">
-          ${cover ? `<img class="det-cover" src="${cover}" alt="" style="border-radius:var(--radius)">` : `<div class="det-cover-ph" style="font-size:40px">🎨</div>`}
+          ${coverUrl ? `<img class="det-cover" src="${coverUrl}" alt="" style="border-radius:var(--radius)">` : `<div class="det-cover-ph" style="font-size:40px">🎨</div>`}
           <div class="det-meta" style="margin-top:14px">
-            <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint)">${mediums.join(' · ')}</div>
-            ${item.created && item.created !== '{ date }' ? `<div style="font-size:9px;letter-spacing:0.1em;color:var(--faint);margin-top:4px">added ${item.created}</div>` : ''}
+            <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint)">${h(mediums.join(' · '))}</div>
+            ${item.created && item.created !== '{ date }' ? `<div style="font-size:9px;letter-spacing:0.1em;color:var(--faint);margin-top:4px">added ${h(item.created)}</div>` : ''}
           </div>
         </div>
         <div class="det-right">
-          <div class="det-title">${title}</div>
-          <div class="det-sub">${artist}${item.year ? ' · ' + item.year : ''}</div>
+          <div class="det-title">${h(title)}</div>
+          <div class="det-sub">${h(artist)}${item.year ? ' · ' + h(item.year) : ''}</div>
           <div class="det-tags">
-            ${mediums.map(m => `<span class="coll-tag amber">${m}</span>`).join('')}
+            ${mediums.map(m => `<span class="coll-tag amber">${h(m)}</span>`).join('')}
           </div>
           ${relatedHtml}
         </div>
       </div>`;
   }
 }
-
 async function saveDetail() {
   if (!detailItem || !storage) return;
   const type      = detailItem._type;
@@ -3659,3 +3637,5 @@ document.addEventListener('keydown', e => {
 </script>
 </body>
 </html>
+
+
