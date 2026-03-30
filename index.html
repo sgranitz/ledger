@@ -1092,6 +1092,29 @@ const STOULT = (() => {
       _token = storedToken; _tokenExp = storedExp; _user = parsedUser;
       return true;
     }
+    // Token expired but user is known — try silent refresh before showing gate
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        if (parsedUser?.email) {
+          const ok = await new Promise(resolve => {
+            const tid = setTimeout(() => resolve(false), 4000);
+            _tokenClient.callback = (resp) => {
+              clearTimeout(tid);
+              if (resp.error) { resolve(false); return; }
+              _token = resp.access_token;
+              _tokenExp = Date.now() + (resp.expires_in || 3600) * 1000;
+              localStorage.setItem(GTOKEN_KEY, _token);
+              localStorage.setItem(GTOKEN_EXP_KEY, String(_tokenExp));
+              _user = parsedUser;
+              resolve(true);
+            };
+            _tokenClient.requestAccessToken({ prompt: '' });
+          });
+          if (ok) return true;
+        }
+      } catch {}
+    }
     return false;
   }
   function signIn() {
