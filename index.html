@@ -2176,7 +2176,7 @@ function renderVinylCard(item) {
   const genres = Array.isArray(item.genre) ? item.genre.slice(0,1) : (item.genre ? [item.genre] : []);
   const cover = safeMediaUrl(item._cover);
 
-  return `<div class="coll-card" data-filename="${h(item.filename)}">
+  return `<div class="coll-card" data-filename="${h(item.filename)}" data-type="vinyl">
     ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder">V</div>`}
     <div class="coll-info">
       <div class="coll-title">${h(title)}</div>
@@ -2199,7 +2199,7 @@ function renderBookCard(item) {
 
   const statusColor = status === 'Read' ? 'amber' : '';
 
-  return `<div class="coll-card" data-filename="${h(item.filename)}">
+  return `<div class="coll-card" data-filename="${h(item.filename)}" data-type="books">
     ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder">B</div>`}
     <div class="coll-info">
       <div class="coll-title">${h(title)}</div>
@@ -2219,7 +2219,7 @@ function renderArtworkCard(item) {
   const mediums = Array.isArray(item.medium) ? item.medium.slice(0,2) : (item.medium ? [item.medium] : []);
   const cover   = safeMediaUrl(item._cover);
 
-  return `<div class="coll-card" data-filename="${h(item.filename)}">
+  return `<div class="coll-card" data-filename="${h(item.filename)}" data-type="art">
     ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder" style="font-size:28px">A</div>`}
     <div class="coll-info">
       <div class="coll-title">${h(title)}</div>
@@ -2531,7 +2531,7 @@ function renderArtworkStats() {
       <div class="stat-label">gallery <span style="opacity:0.45;font-size:10px;margin-left:6px">${gallery.length} of ${c.length} with images</span></div>
       <div class="fav-grid">
         ${gallery.map(item => `
-          <div class="fav-card" onclick="switchAction('browse');switchType('art');setTimeout(()=>openDetail('${item.filename}'),300)">
+          <div class="fav-card" onclick='switchAction("browse");switchType("art");setTimeout(()=>openDetail(${jsq(item.filename)}, "art"),300)'>
             <img class="fav-cover" src="${item._cover}" alt="" loading="lazy">
             <div class="fav-title">${item.title || item.filename?.replace('.md','')}</div>
             <div class="fav-sub">${Array.isArray(item.artist) ? item.artist[0] : (item.artist||'-')}</div>
@@ -3667,7 +3667,7 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
         ${inCollection.map(r => {
           const relCover = safeMediaUrl(r._cover);
           return `
-          <div class="det-rel-item" onclick="closeArtist();openDetail(${jsq(r.filename)})">
+          <div class="det-rel-item" onclick='closeArtist();openDetail(${jsq(r.filename)}, "vinyl")'>
             ${relCover ? `<img src="${relCover}" alt="" loading="lazy">` : `<div class="det-rel-ph">V</div>`}
             <div>${h(r.title || r.filename?.replace('.md','') || '')}</div>
           </div>`;
@@ -3700,7 +3700,7 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
         ${similarInCollection.slice(0, 8).map(r => {
           const ra = Array.isArray(r.artist) ? (r.artist[0] || '') : (r.artist || '');
           const relCover = safeMediaUrl(r._cover);
-          return `<div class="det-rel-item" onclick="openArtist(${jsq(ra)})">
+          return `<div class="det-rel-item" onclick='openArtist(${jsq(ra)})'>
             ${relCover ? `<img src="${relCover}" alt="" loading="lazy">` : `<div class="det-rel-ph">V</div>`}
             <div>${h(ra || r.title || '')}</div>
           </div>`;
@@ -3847,7 +3847,7 @@ function renderDetailPanel() {
         ${related.map(r => {
           const relCover = safeMediaUrl(r._cover);
           return `
-          <div class="det-rel-item" onclick="openDetail(${jsq(r.filename)})">
+          <div class="det-rel-item" onclick='openDetail(${jsq(r.filename)}, ${jsq(type)})'>
             ${relCover ? `<img src="${relCover}" alt="" loading="lazy">` : `<div class="det-rel-ph">${isVinyl?'V':'B'}</div>`}
             <div>${h(r.title || r.filename)}</div>
           </div>`;
@@ -3880,7 +3880,7 @@ function renderDetailPanel() {
         </div>
         <div class="det-right">
           <div class="det-title">${h(title)}</div>
-          <div class="det-sub"><span class="artist-link" onclick="openArtist(${jsq(artist)})">${h(artist)}</span>${item.year ? ' - ' + h(item.year) : ''}</div>
+          <div class="det-sub"><span class="artist-link" onclick='openArtist(${jsq(artist)})'>${h(artist)}</span>${item.year ? ' - ' + h(item.year) : ''}</div>
           <div class="det-tags">
             ${genres.map(g => `<span class="coll-tag amber">${h(g)}</span>`).join('')}
             ${styles.map(s => `<span class="coll-tag">${h(s)}</span>`).join('')}
@@ -4028,7 +4028,7 @@ async function saveDetail() {
 // Event delegation - single listener for all card clicks
 document.getElementById('collectionGrid').addEventListener('click', e => {
   const card = e.target.closest('[data-filename]');
-  if (card) openDetail(card.dataset.filename);
+  if (card) openDetail(card.dataset.filename, card.dataset.type || null);
 });
 
 // Close on Escape - artist page first, then detail panel
