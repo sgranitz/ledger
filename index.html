@@ -1324,12 +1324,25 @@ const STOULT = (() => {
 
   const FSALStorage = {
     _root: null,
-    async init(h) { this._root = h; await _saveHandle(h); },
+    _dirCache: {},
+    async init(h) { this._root = h; this._dirCache = {}; await _saveHandle(h); },
     async _traverse(rel, create = false) {
-      const parts = rel.split('/').filter(Boolean); let node = this._root;
+      const parts = rel.split('/').filter(Boolean);
+      let node = this._root, prefix = '';
       for (let i = 0; i < parts.length; i++) {
         const p = parts[i], isLast = i === parts.length - 1, isFile = isLast && p.includes('.');
-        node = isFile ? await node.getFileHandle(p, { create }) : await node.getDirectoryHandle(p, { create });
+        const cur = prefix ? `${prefix}/${p}` : p;
+        if (isFile) {
+          node = await node.getFileHandle(p, { create });
+        } else {
+          if (!create && this._dirCache[cur]) {
+            node = this._dirCache[cur];
+          } else {
+            node = await node.getDirectoryHandle(p, { create });
+            if (!create) this._dirCache[cur] = node;
+          }
+        }
+        prefix = cur;
       }
       return node;
     },
