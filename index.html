@@ -1460,6 +1460,7 @@ let currentAddTab = 'vinyl';
 let currentAction = 'add';
 let currentSort = 'added';
 let activeFilters = {}; // { genre: 'Hip Hop', color: 'Red', ... }
+let statsLoadToken = 0;
 
 // ════════════════════════════════════════════
 // INIT
@@ -1688,7 +1689,7 @@ function parseRating(val) {
   const n = parseInt(s);
   if (!isNaN(n)) return n;
   // Fall back to counting star-like characters used by older or ASCII-safe files.
-  return [...s].filter(c => c === '*').length;
+  return [...s].filter(c => c === '*' || c === '★' || c === '☆').length;
 }
 
 
@@ -1724,6 +1725,7 @@ function switchType(type) {
 
 function switchAction(action) {
   currentAction = action;
+  if (action !== 'stats') statsLoadToken += 1;
   ['add','browse','stats'].forEach(n => {
     document.getElementById(`panel${n.charAt(0).toUpperCase()+n.slice(1)}`).style.display = n === action ? 'block' : 'none';
     document.getElementById(`nav${n.charAt(0).toUpperCase()+n.slice(1)}`).classList.toggle('active', n === action);
@@ -2232,6 +2234,52 @@ function renderArtworkCard(item) {
 // ════════════════════════════════════════════
 // STATS
 // ════════════════════════════════════════════
+function statsCacheKeyForType(type) {
+  return type === 'art' ? 'art' : type;
+}
+
+function statsBaseForType(type) {
+  return type === 'vinyl' ? VINYL_BASE : type === 'books' ? BOOKS_BASE : ARTWORK_BASE;
+}
+
+function statsLabelForType(type) {
+  return type === 'vinyl' ? 'records' : type === 'books' ? 'books' : 'pieces';
+}
+
+function getStatsCollection(type) {
+  return type === 'vinyl' ? vinylCollection : type === 'books' ? booksCollection : artworkCollection;
+}
+
+function setStatsCollection(type, items) {
+  if (type === 'vinyl') vinylCollection = items;
+  else if (type === 'books') booksCollection = items;
+  else artworkCollection = items;
+}
+
+function renderStatsView(type) {
+  return type === 'vinyl'
+    ? renderVinylStats()
+    : type === 'books'
+      ? renderBookStats()
+      : renderArtworkStats();
+}
+
+function renderStatsLoading(type, loaded = 0, total = 0, failures = 0) {
+  const label = statsLabelForType(type);
+  const progress = total > 0 ? `${loaded} / ${total}` : `${loaded}`;
+  const suffix = failures ? ` - ${failures} skipped` : '';
+  return `<div class="stat-card"><div class="loading-row"><span class="spinner"></span> loading ${label} for stats... ${progress}${suffix}</div></div>`;
+}
+
+async function loadStatsCollection(type, onProgress) {
+  const base = statsBaseForType(type);
+  const indexedFiles = indexedFilesForBase(base);
+  const filesForLoad = indexedFiles.length ? indexedFiles : null;
+  return type === 'art'
+    ? readArtworkFiles(base, filesForLoad, onProgress)
+    : readAllMdFiles(base, filesForLoad, onProgress);
+}
+
 async function renderStats() {
   const el = document.getElementById('statsContent');
   if (!storage) {
@@ -2239,24 +2287,49 @@ async function renderStats() {
     return;
   }
 
-  // Load full collections if not yet cached
-  if (vinylCollection.length === 0) {
-    el.innerHTML = '<div class="stat-card"><div class="loading-row"><span class="spinner"></span> loading collection for stats...</div></div>';
-    vinylCollection = await readAllMdFiles(VINYL_BASE);
-  }
-  if (booksCollection.length === 0) {
-    booksCollection = await readAllMdFiles(BOOKS_BASE);
-  }
-  if (artworkCollection.length === 0) {
-    artworkCollection = await readArtworkFiles(ARTWORK_BASE);
+  const requestedType = currentStatsType;
+  const cacheKey = statsCacheKeyForType(requestedType);
+  const browseState = getBrowseLoadState(cacheKey);
+  const token = ++statsLoadToken;
+
+  if (browseCache[cacheKey]?.length && !browseState.loading && getStatsCollection(requestedType).length === 0) {
+    setStatsCollection(requestedType, browseCache[cacheKey].slice());
   }
 
-  if (currentStatsType === 'vinyl') {
-    el.innerHTML = renderVinylStats();
-  } else if (currentStatsType === 'books') {
-    el.innerHTML = renderBookStats();
-  } else {
-    el.innerHTML = renderArtworkStats();
+  if (getStatsCollection(requestedType).length > 0) {
+    el.innerHTML = renderStatsView(requestedType);
+    return;
+  }
+
+  const totalIndexed = indexedFilesForBase(statsBaseForType(requestedType)).length;
+  el.innerHTML = renderStatsLoading(requestedType, 0, totalIndexed);
+
+  try {
+    const fresh = await loadStatsCollection(requestedType, ({ items, loaded, total, failures }) => {
+      if (token !== statsLoadToken || currentAction !== 'stats' || currentStatsType !== requestedType) return;
+      if (items?.length) setStatsCollection(requestedType, items.slice());
+      el.innerHTML = renderStatsLoading(requestedType, loaded, total, failures);
+    });
+
+    if (token !== statsLoadToken || currentAction !== 'stats' || currentStatsType !== requestedType) return;
+
+    setStatsCollection(requestedType, fresh);
+    if (!browseCache[cacheKey] || fresh.length >= browseCache[cacheKey].length) {
+      browseCache[cacheKey] = fresh.slice();
+    }
+    el.innerHTML = renderStatsView(requestedType);
+  } catch (e) {
+    console.error('stats render failed', e);
+    if (token !== statsLoadToken || currentAction !== 'stats' || currentStatsType !== requestedType) return;
+
+    const partial = getStatsCollection(requestedType);
+    if (partial.length > 0) {
+      showToast('stats load interrupted - showing partial results', 'error');
+      el.innerHTML = renderStatsView(requestedType);
+      return;
+    }
+
+    el.innerHTML = '<div class="stat-card"><div class="loading-row">stats failed - reload and reconnect if needed</div></div>';
   }
 }
 
