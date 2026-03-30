@@ -889,7 +889,7 @@ select.det-input { cursor: pointer; }
 <!-- HEADER -->
 <header class="header">
   <div class="header-left">
-    <a class="back-link" href="https://www.stoult.com/workshop/"><- return to the workshop</a>
+    <a class="back-link" href="https://www.stoult.com/workshop/">&larr; return to the workshop</a>
     <div class="wordmark">the <em>ledger</em></div>
   </div>
   <div class="vault-status">
@@ -1055,14 +1055,14 @@ select.det-input { cursor: pointer; }
 
 <div class="detail-overlay" id="detailOverlay">
   <div class="detail-inner">
-    <button class="det-back" onclick="closeDetail()"><- back to collection</button>
+    <button class="det-back" onclick="closeDetail()">&larr; back to collection</button>
     <div id="detailContent"></div>
   </div>
 </div>
 
 <div class="detail-overlay" id="artistOverlay" style="z-index:210">
   <div class="detail-inner">
-    <button class="det-back" onclick="closeArtist()"><- back to record</button>
+    <button class="det-back" onclick="closeArtist()">&larr; back to record</button>
     <div id="artistContent"></div>
   </div>
 </div>
@@ -1520,16 +1520,20 @@ async function reconnectVault() {
 }
 
 async function initWithFSAL(handle) {
-  await STOULT.FSALStorage.init(handle);
-  storage = STOULT.FSALStorage;
-  STOULT.setStorage(storage);
-  updateVaultUI(handle.name);
-  showToast('vault connected - building index...', 'success');
-  await Promise.all([loadConfig(), loadCollections()]);
-  showToast(`indexed ${vinylIndex.length} records - ${booksIndex.length} books`, 'success');
-  const activeNav = document.querySelector('.nav-btn.active')?.id;
-  if (activeNav === 'navBrowse') renderBrowse();
-  if (activeNav === 'navStats') renderStats();
+  try {
+    await STOULT.FSALStorage.init(handle);
+    storage = STOULT.FSALStorage;
+    STOULT.setStorage(storage);
+    updateVaultUI(handle.name);
+    showToast('vault connected - building index...', 'success');
+    await Promise.all([loadConfig(), loadCollections()]);
+    showToast(`indexed ${vinylIndex.length} records - ${booksIndex.length} books`, 'success');
+    if (currentAction === 'browse') await renderBrowse();
+    if (currentAction === 'stats') await renderStats();
+  } catch (e) {
+    console.error(e);
+    showToast('vault connected, but indexing failed', 'error');
+  }
 }
 
 async function signInGoogle() {
@@ -1570,16 +1574,20 @@ async function initWithDrive() {
     document.getElementById('vaultPathRow').style.display = '';
     return;
   }
-  STOULT.DriveStorage.init(rootId);
-  storage = STOULT.DriveStorage;
-  STOULT.setStorage(storage);
-  updateVaultUI(user.email || user.name || 'google drive');
-  showToast('vault connected - building index...', 'success');
-  await Promise.all([loadConfig(), loadCollections()]);
-  showToast(`indexed ${vinylIndex.length} records - ${booksIndex.length} books`, 'success');
-  const activeNav = document.querySelector('.nav-btn.active')?.id;
-  if (activeNav === 'navBrowse') renderBrowse();
-  if (activeNav === 'navStats') renderStats();
+  try {
+    STOULT.DriveStorage.init(rootId);
+    storage = STOULT.DriveStorage;
+    STOULT.setStorage(storage);
+    updateVaultUI(user.email || user.name || 'google drive');
+    showToast('vault connected - building index...', 'success');
+    await Promise.all([loadConfig(), loadCollections()]);
+    showToast(`indexed ${vinylIndex.length} records - ${booksIndex.length} books`, 'success');
+    if (currentAction === 'browse') await renderBrowse();
+    if (currentAction === 'stats') await renderStats();
+  } catch (e) {
+    console.error(e);
+    showToast('vault connected, but indexing failed', 'error');
+  }
 }
 
 async function disconnectVault() {
@@ -1646,29 +1654,31 @@ let booksIndex = []; // [{ filename, author }]
 
 async function loadCollections() {
   if (!storage) return;
-  try {
-    await storage.ensureFolder(LEDGER_BASE);
-    await Promise.all([
-      storage.ensureFolder(VINYL_BASE),
-      storage.ensureFolder(BOOKS_BASE),
-      storage.ensureFolder(ARTWORK_BASE),
-    ]);
-    // Just count files - content loads lazily when the browse view renders
-    const [vf, bf, af] = await Promise.all([
-      storage.listFiles(VINYL_BASE),
-      storage.listFiles(BOOKS_BASE),
-      storage.listFiles(ARTWORK_BASE),
-    ]);
-    vinylIndex   = vf.filter(f => f.file && f.name.endsWith('.md'));
-    booksIndex   = bf.filter(f => f.file && f.name.endsWith('.md'));
-    artworkIndex = af.filter(f => f.file && f.name.endsWith('.md'));
-    vinylCollection = [];
-    booksCollection = [];
-    artworkCollection = [];
-    localImageCache = {};
-    browseCache = { vinyl: null, books: null, art: null };
-    renderBrowse();
-  } catch(e) { console.error(e); }
+  await storage.ensureFolder(LEDGER_BASE);
+  await Promise.all([
+    storage.ensureFolder(VINYL_BASE),
+    storage.ensureFolder(BOOKS_BASE),
+    storage.ensureFolder(ARTWORK_BASE),
+  ]);
+  // Just count files - content loads lazily when the browse view renders
+  const [vf, bf, af] = await Promise.all([
+    storage.listFiles(VINYL_BASE),
+    storage.listFiles(BOOKS_BASE),
+    storage.listFiles(ARTWORK_BASE),
+  ]);
+  vinylIndex   = vf.filter(f => f.file && f.name.endsWith('.md'));
+  booksIndex   = bf.filter(f => f.file && f.name.endsWith('.md'));
+  artworkIndex = af.filter(f => f.file && f.name.endsWith('.md'));
+  vinylCollection = [];
+  booksCollection = [];
+  artworkCollection = [];
+  localImageCache = {};
+  browseCache = { vinyl: null, books: null, art: null };
+  browseLoadState = {
+    vinyl: emptyBrowseLoadState(),
+    books: emptyBrowseLoadState(),
+    art: emptyBrowseLoadState(),
+  };
 }
 
 function parseRating(val) {
@@ -1812,8 +1822,27 @@ function renderBrowseCount(type, cacheKey, itemsCount, collectionCount) {
     ).join('')}</span>`;
 }
 
-function renderBrowse() {
-  filterCollection();
+async function renderBrowse() {
+  const grid = document.getElementById('collectionGrid');
+  const countEl = document.getElementById('browseCount');
+  if (!storage) {
+    return filterCollection();
+  }
+
+  const cacheKey = currentBrowseType === 'art' ? 'art' : currentBrowseType;
+  if (!browseCache[cacheKey]) {
+    countEl.textContent = '';
+    grid.innerHTML = `<div class="browse-empty"><span class="spinner"></span> preparing browse...</div>`;
+  }
+
+  try {
+    await filterCollection();
+  } catch (e) {
+    console.error(e);
+    clearBrowseLoadState(cacheKey);
+    countEl.textContent = '';
+    grid.innerHTML = `<div class="browse-empty">browse failed - reload and reconnect if needed</div>`;
+  }
 }
 
 function debouncedSearch() {
