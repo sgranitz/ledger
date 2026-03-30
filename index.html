@@ -2415,7 +2415,7 @@ async function readAllMdFiles(base, filesOverride, onProgress) {
     filesOverride = null;
   }
   return readMdFiles(base, filesOverride, async (file, meta, body) => {
-    const _cover = body.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/)?.[1] || null;
+    const _cover = extractMarkdownCoverUrl(body) || null;
     const _localImage = body.match(/!\[\[([^\]]+\.(jpg|jpeg|png|webp|gif))\]\]/i)?.[1] || null;
     return { filename: file.name, ...meta, _body: body, _cover, _localImage };
   }, onProgress);
@@ -2888,7 +2888,7 @@ async function saveVinyl() {
     artists = data.artists ? data.artists.map(a => a.name.replace(/\s\(\d+\)$/, '').trim()) : [document.getElementById('vArtist').value];
     year = data.year || ''; released = data.released || ''; master_id = data.master_id || '';
     genres = data.genres || []; styles = data.styles || [];
-    coverUrl = data.images?.[0]?.uri || '';
+    coverUrl = firstUsableCoverUrl(data.images?.[0]?.uri);
     tracklist = data.tracklist ? data.tracklist.map(t => `${t.position}. ${t.title}${t.duration?' ('+t.duration+')':''}`).join('\n') : '';
     notes = data.notes || '';
   } else {
@@ -2897,7 +2897,7 @@ async function saveVinyl() {
     title = parts.length > 1 ? parts.slice(1).join(' - ') : parts[0];
     artists = [document.getElementById('vArtist').value];
     year = r.year || ''; released = ''; master_id = ''; genres = []; styles = [];
-    coverUrl = r.cover_image || ''; tracklist = ''; notes = '';
+    coverUrl = firstUsableCoverUrl(r.cover_image); tracklist = ''; notes = '';
   }
 
   const sanitize = s => (s || '').replace(/[\\/:*?"<>|]/g, '-');
@@ -3029,7 +3029,8 @@ async function enrichVinyl() {
     const title = String(meta.title || name.replace('.md', '')).replace(/["']/g, '').trim();
     const artistField = Array.isArray(meta.artist) ? meta.artist : (meta.artist ? [meta.artist] : []);
     const primaryArtist = cleanArtist(artistField[0] || '');
-    const hasCover = !!body.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
+    const hasCover = !!extractMarkdownCoverUrl(body);
+    const hasBrokenCoverMarkup = /!\[[^\]]*\]\(\s*\)|!\[[^\]]*\]\([^)]*spacer[^)]*\)/i.test(body);
     const tracklist = extractBodySection(text, 'Tracklist');
     const notes = extractBodySection(text, 'Notes from Discogs');
     const hasTracklist = !!tracklist && tracklist !== 'Not available.';
@@ -3040,7 +3041,7 @@ async function enrichVinyl() {
     const hasGenre = Array.isArray(meta.genre) ? meta.genre.length > 0 : !!meta.genre;
     const hasStyles = Array.isArray(meta.styles) ? meta.styles.length > 0 : !!meta.styles;
 
-    const needsUpdate = !hasCover || !hasTracklist || !hasNotes || !hasYear || !hasReleased || !hasMasterId || !hasGenre || !hasStyles;
+    const needsUpdate = !hasCover || hasBrokenCoverMarkup || !hasTracklist || !hasNotes || !hasYear || !hasReleased || !hasMasterId || !hasGenre || !hasStyles;
     if (!needsUpdate || !title || !primaryArtist) { skipped++; continue; }
 
     let searchResult = null;
@@ -3087,9 +3088,9 @@ async function enrichVinyl() {
     if (!hasGenre && release.genres?.length) newText = patchList(newText, 'genre', release.genres);
     if (!hasStyles && release.styles?.length) newText = patchList(newText, 'styles', release.styles);
 
-    const coverUrl = release.images?.[0]?.uri || searchResult.cover_image || '';
-    if (!hasCover && coverUrl) {
-      newText = newText.replace(/^(---\n[\s\S]*?\n---\n)/, `$1\n![Album Cover|300](${coverUrl})\n`);
+    const coverUrl = firstUsableCoverUrl(release.images?.[0]?.uri, searchResult.cover_image);
+    if (!hasCover || hasBrokenCoverMarkup) {
+      newText = replaceLeadingCoverImage(newText, coverUrl);
     }
 
     if (!hasTracklist && release.tracklist?.length) {
@@ -3717,6 +3718,45 @@ function safeMediaUrl(value) {
   } catch {
     return '';
   }
+}
+
+function isPlaceholderCoverUrl(value) {
+  return /spacer(?:\.gif)?/i.test(String(value ?? ''));
+}
+
+function normalizeCoverUrl(value) {
+  const safe = safeMediaUrl(value);
+  return safe && !isPlaceholderCoverUrl(safe) ? safe : '';
+}
+
+function firstUsableCoverUrl(...values) {
+  for (const value of values) {
+    const normalized = normalizeCoverUrl(value);
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
+function extractMarkdownCoverUrl(body) {
+  const matches = String(body ?? '').matchAll(/!\[[^\]]*\]\(([^)]*)\)/g);
+  for (const match of matches) {
+    const normalized = normalizeCoverUrl(match[1]);
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
+function replaceLeadingCoverImage(text, coverUrl) {
+  const withoutCover = String(text ?? '').replace(
+    /^(---\n[\s\S]*?\n---\n)(?:\s*!\[[^\]]*\]\([^)]*\)\s*\n?)*/m,
+    '$1'
+  );
+  const normalized = normalizeCoverUrl(coverUrl);
+  if (!normalized) return withoutCover;
+  return withoutCover.replace(
+    /^(---\n[\s\S]*?\n---\n)/,
+    `$1\n![Album Cover|300](${normalized})\n`
+  );
 }
 
 // ════════════════════════════════════════════
