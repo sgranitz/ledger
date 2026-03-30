@@ -1780,6 +1780,11 @@ function indexedFilesForBase(base) {
   return [];
 }
 
+function textValue(value) {
+  if (Array.isArray(value)) return value.map(textValue).join(' ');
+  return String(value ?? '');
+}
+
 // ── IndexedDB browse cache ───────────────────────────────────────────────────
 let _browseIDB = null;
 function _openBrowseIDB() {
@@ -1825,11 +1830,11 @@ function renderBrowseCount(type, cacheKey, itemsCount, collectionCount) {
 async function renderBrowse() {
   const grid = document.getElementById('collectionGrid');
   const countEl = document.getElementById('browseCount');
+  const cacheKey = currentBrowseType === 'art' ? 'art' : currentBrowseType;
   if (!storage) {
     return filterCollection();
   }
 
-  const cacheKey = currentBrowseType === 'art' ? 'art' : currentBrowseType;
   if (!browseCache[cacheKey]) {
     countEl.textContent = '';
     grid.innerHTML = `<div class="browse-empty"><span class="spinner"></span> preparing browse...</div>`;
@@ -1839,9 +1844,22 @@ async function renderBrowse() {
     await filterCollection();
   } catch (e) {
     console.error(e);
+    const idbKey = browseCacheKey(cacheKey);
+    browseCache[cacheKey] = null;
     clearBrowseLoadState(cacheKey);
-    countEl.textContent = '';
-    grid.innerHTML = `<div class="browse-empty">browse failed - reload and reconnect if needed</div>`;
+    if (idbKey) {
+      try { await idbSet(idbKey, []); } catch {}
+    }
+
+    try {
+      await filterCollection();
+      return;
+    } catch (retryError) {
+      console.error(retryError);
+      clearBrowseLoadState(cacheKey);
+      countEl.textContent = '';
+      grid.innerHTML = `<div class="browse-empty">browse failed - reload and reconnect if needed</div>`;
+    }
   }
 }
 
@@ -1892,13 +1910,15 @@ function renderFilterBar() {
       for (const [key, value] of Object.entries(activeFilters)) {
         if (key === excludeKey) continue;
         if (key === 'year') {
-          const y = parseInt(item.year);
+          const y = parseInt(textValue(item.year), 10);
           const decade = y ? Math.floor(y/10)*10+'s' : null;
           if (decade !== value) return false;
         } else {
           const v = item[key];
-          const vals = Array.isArray(v) ? v : (v ? [v] : []);
-          if (!vals.includes(value)) return false;
+          const vals = (Array.isArray(v) ? v : (v ? [v] : []))
+            .map(x => textValue(x).trim())
+            .filter(Boolean);
+          if (!vals.includes(String(value))) return false;
         }
       }
       return true;
@@ -1912,12 +1932,14 @@ function renderFilterBar() {
     const valueCounts = {};
     basis.forEach(item => {
       if (group.decade) {
-        const y = parseInt(item.year);
+        const y = parseInt(textValue(item.year), 10);
         if (y) { const d = Math.floor(y/10)*10+'s'; valueCounts[d] = (valueCounts[d]||0)+1; }
       } else {
         const v = item[group.key];
-        const vals = Array.isArray(v) ? v : (v ? [v] : []);
-        vals.forEach(x => { if (x) valueCounts[x] = (valueCounts[x]||0)+1; });
+        const vals = (Array.isArray(v) ? v : (v ? [v] : []))
+          .map(x => textValue(x).trim())
+          .filter(Boolean);
+        vals.forEach(x => { valueCounts[x] = (valueCounts[x]||0)+1; });
       }
     });
 
@@ -1929,7 +1951,10 @@ function renderFilterBar() {
     html += `<select class="filter-select ${active ? 'active' : ''}"
       onchange="setFilter('${group.key}', this.value)">
       <option value="">${group.label}</option>
-      ${sorted.map(([v, n]) => `<option value="${v.replace(/"/g,'&quot;')}" ${active===v?'selected':''}>${v} (${n})</option>`).join('')}
+      ${sorted.map(([v, n]) => {
+        const valueText = textValue(v).trim();
+        return `<option value="${h(valueText)}" ${String(active)===valueText?'selected':''}>${h(valueText)} (${n})</option>`;
+      }).join('')}
     </select>`;
   }
 
@@ -1947,23 +1972,21 @@ function renderGrid() {
 
   let items = collection.slice().sort((a, b) => {
     if (currentSort === 'added') {
-      return (b.created || '').localeCompare(a.created || '');
+      return textValue(b.created).localeCompare(textValue(a.created));
     }
     if (currentSort === 'released') {
-      return (parseInt(b.year) || 0) - (parseInt(a.year) || 0);
+      return (parseInt(textValue(b.year), 10) || 0) - (parseInt(textValue(a.year), 10) || 0);
     }
-    const ta = (a.title || a.filename || '').toLowerCase();
-    const tb = (b.title || b.filename || '').toLowerCase();
+    const ta = textValue(a.title || a.filename).toLowerCase();
+    const tb = textValue(b.title || b.filename).toLowerCase();
     return ta.localeCompare(tb);
   });
 
   if (q) {
     const field = type === 'books' ? 'author' : 'artist';
     items = items.filter(item => {
-      const title = (item.title || item.filename || '').toLowerCase();
-      const person = Array.isArray(item[field])
-        ? item[field].join(' ').toLowerCase()
-        : (item[field] || '').toLowerCase();
+      const title = textValue(item.title || item.filename).toLowerCase();
+      const person = textValue(item[field]).toLowerCase();
       return title.includes(q) || person.includes(q);
     });
   }
@@ -1971,13 +1994,15 @@ function renderGrid() {
   for (const [key, value] of Object.entries(activeFilters)) {
     items = items.filter(item => {
       if (key === 'year') {
-        const y = parseInt(item.year);
+        const y = parseInt(textValue(item.year), 10);
         const decade = y ? Math.floor(y / 10) * 10 + 's' : null;
         return decade === value;
       }
       const v = item[key];
-      const vals = Array.isArray(v) ? v : (v ? [v] : []);
-      return vals.includes(value);
+      const vals = (Array.isArray(v) ? v : (v ? [v] : []))
+        .map(x => textValue(x).trim())
+        .filter(Boolean);
+      return vals.includes(String(value));
     });
   }
 
