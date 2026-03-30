@@ -1071,7 +1071,7 @@ const STOULT = (() => {
   const DRIVE = 'https://www.googleapis.com/drive/v3';
   const IDB_DB = 'stoult', IDB_STORE = 'handles', IDB_KEY = 'vault';
   const GTOKEN_KEY = 'stoult_gtoken', GTOKEN_EXP_KEY = 'stoult_gtoken_exp', GUSER_KEY = 'stoult_guser';
-  let _tokenClient = null, _token = null, _tokenExp = 0, _user = null;
+  let _tokenClient = null, _token = null, _tokenExp = 0, _user = null, _tokenRefreshPromise = null;
 
   async function initGoogle(clientId) {
     if (!window.google?.accounts?.oauth2) return false;
@@ -1143,8 +1143,10 @@ const STOULT = (() => {
   function getUser() { return _user; }
   async function getToken() {
     if (_token && _tokenExp > Date.now() + 60000) return _token;
-    return new Promise((resolve, reject) => {
-      _tokenClient.callback = async (resp) => {
+    if (_tokenRefreshPromise) return _tokenRefreshPromise;
+    _tokenRefreshPromise = new Promise((resolve, reject) => {
+      _tokenClient.callback = (resp) => {
+        _tokenRefreshPromise = null;
         if (resp.error) { reject(new Error(resp.error)); return; }
         _token = resp.access_token;
         _tokenExp = Date.now() + (resp.expires_in || 3600) * 1000;
@@ -1153,6 +1155,7 @@ const STOULT = (() => {
       };
       _tokenClient.requestAccessToken({ prompt: '' });
     });
+    return _tokenRefreshPromise;
   }
 
   async function dFetch(method, path, body, contentType) {
@@ -1718,6 +1721,30 @@ function switchAction(action) {
 // Full parsed collection cache for browse (loaded on demand)
 let browseCache = { vinyl: null, books: null, art: null };
 
+// ── IndexedDB browse cache ───────────────────────────────────────────────────
+let _browseIDB = null;
+function _openBrowseIDB() {
+  if (_browseIDB) return Promise.resolve(_browseIDB);
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('stoult_browse', 1);
+    r.onupgradeneeded = e => e.target.result.createObjectStore('c');
+    r.onsuccess = e => { _browseIDB = e.target.result; res(_browseIDB); };
+    r.onerror = rej;
+  });
+}
+async function idbGet(key) {
+  try { const db = await _openBrowseIDB(); return new Promise(r => db.transaction('c').objectStore('c').get(key).onsuccess = e => r(e.target.result ?? null)); }
+  catch { return null; }
+}
+async function idbSet(key, value) {
+  try { const db = await _openBrowseIDB(); return new Promise(r => { const tx = db.transaction('c', 'readwrite'); tx.objectStore('c').put(value, key); tx.oncomplete = r; }); }
+  catch {}
+}
+function browseCacheKey(cacheKey) {
+  const vaultId = storage?._rootId || (storage ? 'fsal' : null);
+  return vaultId ? `${vaultId}:${cacheKey}` : null;
+}
+
 function renderBrowse() {
   filterCollection();
 }
@@ -1899,6 +1926,19 @@ async function filterCollection() {
   }
 
   if (!browseCache[cacheKey]) {
+    // Check IDB for an instant first render
+    const idbKey = browseCacheKey(cacheKey);
+    const cached = idbKey ? await idbGet(idbKey) : null;
+    if (cached?.length) {
+      browseCache[cacheKey] = cached;
+      renderFilterBar();
+      renderGrid();
+      // Refresh in background — no spinner, UI already populated
+      _refreshBrowseBackground(base, cacheKey, isArt, idbKey);
+      return;
+    }
+
+    // No cache — full load with spinner
     grid.innerHTML = `<div class="browse-empty"><span class="spinner"></span> loading ${label}...</div>`;
     countEl.textContent = '';
     try {
@@ -1910,6 +1950,7 @@ async function filterCollection() {
           renderGrid();
         });
       }
+      if (idbKey && browseCache[cacheKey]?.length) idbSet(idbKey, browseCache[cacheKey]);
     } catch(e) {
       console.error(e);
       grid.innerHTML = `<div class="browse-empty">failed to load — check vault connection</div>`;
@@ -1919,6 +1960,17 @@ async function filterCollection() {
 
   renderFilterBar();
   renderGrid();
+}
+
+async function _refreshBrowseBackground(base, cacheKey, isArt, idbKey) {
+  try {
+    const fresh = isArt ? await readArtworkFiles(base) : await readAllMdFiles(base);
+    if (!fresh?.length) return;
+    browseCache[cacheKey] = fresh;
+    if (idbKey) idbSet(idbKey, fresh);
+    renderFilterBar();
+    renderGrid();
+  } catch {}
 }
 
 function renderVinylCard(item) {
