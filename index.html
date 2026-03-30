@@ -972,6 +972,15 @@ select.det-input { cursor: pointer; }
     </div>
     <div id="vResults"></div>
     <div id="vConfirm"></div>
+
+    <div class="section" style="margin-top:20px;border-style:dashed">
+      <div class="section-label">enrich collection</div>
+      <p style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:12px">
+        Search Discogs for vinyl missing cover art, tracklist, or release metadata and patch the vault files.
+      </p>
+      <button class="btn-search" id="vEnrichBtn" onclick="enrichVinyl()" style="font-size:11px">refresh all vinyl</button>
+      <div id="vEnrichProgress" style="margin-top:10px;font-size:11px;color:var(--muted);font-family:'Victor Mono',monospace;line-height:1.8"></div>
+    </div>
   </div>
 
   <!-- BOOKS ADD -->
@@ -2956,6 +2965,171 @@ function resetVinylForm() {
   document.getElementById('vResults').innerHTML = '';
   document.getElementById('vConfirm').innerHTML = '';
   selectedVinyl = null; vinylRating = 0;
+}
+
+// ════════════════════════════════════════════
+// VINYL - BULK ENRICH
+// ════════════════════════════════════════════
+async function enrichVinyl() {
+  if (!storage) { showToast('connect vault first', 'error'); return; }
+  if (!DISCOGS_TOKEN) { showToast('add discogs token to config first', 'error'); return; }
+
+  const btn      = document.getElementById('vEnrichBtn');
+  const progress = document.getElementById('vEnrichProgress');
+  btn.disabled   = true;
+  btn.innerHTML  = '<span class="spinner"></span>scanning...';
+  progress.innerHTML = '';
+
+  const fileList = (await storage.listFiles(VINYL_BASE)).filter(f => f.file && f.name.endsWith('.md'));
+
+  let updated = 0, skipped = 0, failed = 0;
+  const log = [];
+  const addLog = html => {
+    log.unshift(html);
+    progress.innerHTML = log.slice(0, 20).join('<br>');
+  };
+
+  const cleanArtist = value => String(value || '').replace(/\[\[|\]\]/g, '').replace(/\s\(\d+\)\s*$/,'').trim();
+  const norm = value => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const patchLine = (text, field, value, isNum = false) => {
+    if (value == null || value === '') return text;
+    const rendered = isNum ? String(value) : `"${String(value).replace(/"/g, "'")}"`;
+    return text.replace(new RegExp(`^(${field}:\\s*)(?:""|null|)\\s*$`, 'm'), `$1${rendered}`);
+  };
+  const patchList = (text, field, values) => {
+    if (!values?.length) return text;
+    const rendered = `${field}:\n${values.map(v => `  - "${String(v).replace(/"/g, "'")}"`).join('\n')}`;
+    return text.replace(new RegExp(`^${field}:\\s*(?:null)?\\s*$`, 'm'), rendered);
+  };
+  const patchSection = (text, heading, content) => {
+    if (!content) return text;
+    const safe = String(content).trim();
+    const headingRe = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(## ${headingRe}\\n)([\\s\\S]*?)(?=\\n---\\n|\\n## |$)`);
+    return text.replace(re, (_, start) => `${start}${safe}\n`);
+  };
+
+  for (let i = 0; i < fileList.length; i++) {
+    const { name } = fileList[i];
+    btn.textContent = `processing ${i + 1} / ${fileList.length}...`;
+
+    let text;
+    try {
+      const raw = await storage.readFile(`${VINYL_BASE}/${name}`);
+      if (!raw) { failed++; continue; }
+      text = raw.replace(/\r\n/g, '\n');
+    } catch {
+      failed++;
+      continue;
+    }
+
+    const { meta, body } = STOULT.parseFrontmatter(text);
+    if (!Object.keys(meta).length) { skipped++; continue; }
+
+    const title = String(meta.title || name.replace('.md', '')).replace(/["']/g, '').trim();
+    const artistField = Array.isArray(meta.artist) ? meta.artist : (meta.artist ? [meta.artist] : []);
+    const primaryArtist = cleanArtist(artistField[0] || '');
+    const hasCover = !!body.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
+    const tracklist = extractBodySection(text, 'Tracklist');
+    const notes = extractBodySection(text, 'Notes from Discogs');
+    const hasTracklist = !!tracklist && tracklist !== 'Not available.';
+    const hasNotes = !!notes;
+    const hasYear = !!String(meta.year || '').trim();
+    const hasReleased = !!String(meta.released || '').trim();
+    const hasMasterId = !!String(meta.master_id || '').trim();
+    const hasGenre = Array.isArray(meta.genre) ? meta.genre.length > 0 : !!meta.genre;
+    const hasStyles = Array.isArray(meta.styles) ? meta.styles.length > 0 : !!meta.styles;
+
+    const needsUpdate = !hasCover || !hasTracklist || !hasNotes || !hasYear || !hasReleased || !hasMasterId || !hasGenre || !hasStyles;
+    if (!needsUpdate || !title || !primaryArtist) { skipped++; continue; }
+
+    let searchResult = null;
+    try {
+      const url = `https://api.discogs.com/database/search?release_title=${encodeURIComponent(title)}&artist=${encodeURIComponent(primaryArtist)}&type=release&format=vinyl&token=${DISCOGS_TOKEN}&per_page=5`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const titleNorm = norm(title);
+      const artistNorm = norm(primaryArtist);
+      searchResult = data.results?.find(r => {
+        const rawTitle = String(r.title || '');
+        const parts = rawTitle.split(' - ');
+        const resultArtist = norm(parts[0] || '');
+        const resultTitle = norm(parts.length > 1 ? parts.slice(1).join(' - ') : rawTitle);
+        return (!artistNorm || resultArtist.includes(artistNorm) || artistNorm.includes(resultArtist))
+          && (resultTitle.includes(titleNorm) || titleNorm.includes(resultTitle));
+      }) || data.results?.[0] || null;
+    } catch {}
+
+    if (!searchResult?.id) {
+      failed++;
+      addLog(`<span style="color:var(--faint)">x ${h(title)}</span>`);
+      await sleep(500);
+      continue;
+    }
+
+    let release = null;
+    try {
+      const res = await fetch(`https://api.discogs.com/releases/${searchResult.id}?token=${DISCOGS_TOKEN}`);
+      release = await res.json();
+    } catch {}
+
+    if (!release || release.message) {
+      failed++;
+      addLog(`<span style="color:var(--red)">x ${h(title)} (details)</span>`);
+      await sleep(500);
+      continue;
+    }
+
+    let newText = text;
+    if (!hasYear && release.year) newText = patchLine(newText, 'year', release.year, true);
+    if (!hasReleased && release.released) newText = patchLine(newText, 'released', release.released);
+    if (!hasMasterId && release.master_id) newText = patchLine(newText, 'master_id', release.master_id, true);
+    if (!hasGenre && release.genres?.length) newText = patchList(newText, 'genre', release.genres);
+    if (!hasStyles && release.styles?.length) newText = patchList(newText, 'styles', release.styles);
+
+    const coverUrl = release.images?.[0]?.uri || searchResult.cover_image || '';
+    if (!hasCover && coverUrl) {
+      newText = newText.replace(/^(---\n[\s\S]*?\n---\n)/, `$1\n![Album Cover|300](${coverUrl})\n`);
+    }
+
+    if (!hasTracklist && release.tracklist?.length) {
+      const nextTracklist = release.tracklist
+        .map(t => `${t.position}. ${t.title}${t.duration ? ` (${t.duration})` : ''}`)
+        .join('\n');
+      if (nextTracklist) newText = patchSection(newText, 'Tracklist', nextTracklist);
+    }
+
+    if (!hasNotes && release.notes) {
+      newText = patchSection(newText, 'Notes from Discogs', release.notes);
+    }
+
+    if (newText === text) {
+      skipped++;
+      await sleep(500);
+      continue;
+    }
+
+    try {
+      await storage.writeFile(`${VINYL_BASE}/${name}`, newText);
+      updated++;
+      addLog(`<span style="color:var(--green)">ok ${h(title)}</span>`);
+    } catch {
+      failed++;
+      addLog(`<span style="color:var(--red)">x ${h(title)} (write error)</span>`);
+    }
+
+    await sleep(650);
+  }
+
+  browseCache.vinyl = null;
+  vinylCollection = [];
+
+  const summary = `<strong style="color:var(--cream)">${updated} updated - ${skipped} already complete - ${failed} not found</strong>`;
+  log.unshift(summary);
+  progress.innerHTML = log.slice(0, 21).join('<br>');
+  btn.disabled = false;
+  btn.textContent = 'refresh all vinyl';
+  showToast(`enriched ${updated} records`, updated > 0 ? 'success' : '');
 }
 
 // ════════════════════════════════════════════
