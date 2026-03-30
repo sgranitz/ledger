@@ -45,7 +45,7 @@ body {
   margin: 0 auto;
 }
 
-/* â”€â”€ HEADER â”€â”€ */
+/* ── HEADER ── */
 .header {
   display: flex;
   align-items: baseline;
@@ -131,7 +131,7 @@ body {
 }
 .btn-sm:hover { border-color: var(--amber); color: var(--amber); }
 
-/* â”€â”€ MAIN NAV (type selector: vinyl / books) â”€â”€ */
+/* ── MAIN NAV (type selector: vinyl / books) ── */
 .main-nav {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -161,7 +161,7 @@ body {
   border: 1px solid var(--border2);
 }
 
-/* â”€â”€ ACTION TABS (add / browse / stats) â”€â”€ */
+/* ── ACTION TABS (add / browse / stats) ── */
 .sub-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -192,7 +192,7 @@ body {
 }
 
 
-/* â”€â”€ SECTION CARD â”€â”€ */
+/* ── SECTION CARD ── */
 .section {
   background: var(--card);
   border: 1px solid var(--border);
@@ -209,7 +209,7 @@ body {
   margin-bottom: 14px;
 }
 
-/* â”€â”€ INPUTS â”€â”€ */
+/* ── INPUTS ── */
 .field { margin-bottom: 14px; }
 
 .field label {
@@ -243,7 +243,7 @@ body {
 
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-/* â”€â”€ SEARCH BTN â”€â”€ */
+/* ── SEARCH BTN ── */
 .btn-search {
   width: 100%;
   background: transparent;
@@ -262,7 +262,7 @@ body {
 .btn-search:hover:not(:disabled) { border-color: var(--amber); color: var(--amber); border-style: solid; }
 .btn-search:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* â”€â”€ RESULTS GRID â”€â”€ */
+/* ── RESULTS GRID ── */
 .results-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
@@ -299,7 +299,7 @@ body {
 }
 .result-sub { font-size: 9px; color: var(--muted); }
 
-/* â”€â”€ CONFIRM â”€â”€ */
+/* ── CONFIRM ── */
 .confirm-section {
   background: var(--card);
   border: 1px solid var(--amber-dim);
@@ -336,12 +336,12 @@ body {
   text-transform: uppercase; padding: 2px 7px; border-radius: 3px; margin-top: 6px;
 }
 
-/* â”€â”€ STARS â”€â”€ */
+/* ── STARS ── */
 .rating-row { display: flex; gap: 6px; align-items: center; }
 .star { font-size: 18px; cursor: pointer; color: var(--faint); transition: color 0.15s; user-select: none; }
 .star.lit { color: var(--amber); }
 
-/* â”€â”€ SAVE BTN â”€â”€ */
+/* ── SAVE BTN ── */
 .btn-save {
   width: 100%; background: var(--amber); border: none;
   border-radius: 7px; color: #1a1612;
@@ -361,7 +361,7 @@ body {
 }
 .btn-secondary:hover { color: var(--cream); }
 
-/* â”€â”€ BROWSE â”€â”€ */
+/* ── BROWSE ── */
 .browse-controls {
   margin-bottom: 10px;
 }
@@ -520,7 +520,7 @@ body {
 .sort-chip:hover { color: var(--muted); }
 .sort-chip.active { color: var(--amber); }
 
-/* â”€â”€ STATS â”€â”€ */
+/* ── STATS ── */
 .stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -566,7 +566,7 @@ body {
 .legend-item { display: flex; align-items: center; gap: 7px; font-size: 10px; color: var(--muted); }
 .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
-/* â”€â”€ LOADING / TOAST â”€â”€ */
+/* ── LOADING / TOAST ── */
 .spinner {
   display: inline-block; width: 12px; height: 12px;
   border: 2px solid var(--border2); border-top-color: var(--amber);
@@ -594,7 +594,7 @@ body {
 .toast.success { border-color: var(--green); color: var(--green); }
 .toast.error { border-color: var(--red); color: var(--red); }
 
-/* â”€â”€ RECENT â”€â”€ */
+/* ── RECENT ── */
 .recent-label {
   font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--faint); margin-bottom: 12px; margin-top: 8px;
@@ -647,7 +647,7 @@ body {
   .section { padding: 14px; }
 }
 
-/* â”€â”€ DETAIL PANEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── DETAIL PANEL ──────────────────────────────── */
 .coll-card { cursor: pointer; }
 .coll-card:hover { border-color: var(--border2); transform: translateY(-1px); transition: all .15s; }
 
@@ -827,7 +827,7 @@ select.det-input { cursor: pointer; }
   .det-cover, .det-cover-ph { max-width: 180px; }
 }
 
-/* â”€â”€ ARTIST PAGE â”€â”€ */
+/* ── ARTIST PAGE ── */
 .artist-link {
   color: inherit;
   text-decoration: none;
@@ -889,7 +889,7 @@ select.det-input { cursor: pointer; }
 <!-- HEADER -->
 <header class="header">
   <div class="header-left">
-    <a class="back-link" href="https://www.stoult.com/workshop/">â† return to the workshop</a>
+    <a class="back-link" href="https://www.stoult.com/workshop/"><- return to the workshop</a>
     <div class="wordmark">the <em>ledger</em></div>
   </div>
   <div class="vault-status">
@@ -899,7 +899,7 @@ select.det-input { cursor: pointer; }
     </div>
     <div class="identity-pill" id="vaultIn" style="display:none">
       <div class="pill-dot" id="pillDot"></div>
-      <span class="pill-label" id="vaultName">â€”</span>
+      <span class="pill-label" id="vaultName">-</span>
       <button class="btn-sm" onclick="disconnectVault()">disconnect</button>
     </div>
   </div>
@@ -911,9 +911,9 @@ select.det-input { cursor: pointer; }
 
 <!-- TYPE NAV: vinyl / books -->
 <nav class="main-nav">
-  <button class="nav-btn active" id="navVinyl" onclick="switchType('vinyl')">â¬¤ vinyl</button>
-  <button class="nav-btn" id="navBooks" onclick="switchType('books')">â¬¤ books</button>
-  <button class="nav-btn" id="navArt" onclick="switchType('art')">â¬¤ art</button>
+  <button class="nav-btn active" id="navVinyl" onclick="switchType('vinyl')">vinyl</button>
+  <button class="nav-btn" id="navBooks" onclick="switchType('books')">books</button>
+  <button class="nav-btn" id="navArt" onclick="switchType('art')">art</button>
 </nav>
 
 <!-- ACTION NAV: add / browse / stats -->
@@ -923,7 +923,7 @@ select.det-input { cursor: pointer; }
   <button class="sub-tab" id="navStats" onclick="switchAction('stats')">stats</button>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• ADD PANEL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ════════════════ ADD PANEL ════════════════ -->
 <div id="panelAdd">
 
   <!-- ONBOARDING (shown until vault connected) -->
@@ -990,7 +990,7 @@ select.det-input { cursor: pointer; }
       <p style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:12px">
         Search Open Library for every book missing a cover, synopsis, or metadata and patch the vault files.
       </p>
-      <button class="btn-search" id="bEnrichBtn" onclick="enrichBooks()" style="font-size:11px">â†» enrich all books</button>
+      <button class="btn-search" id="bEnrichBtn" onclick="enrichBooks()" style="font-size:11px">refresh all books</button>
       <div id="bEnrichProgress" style="margin-top:10px;font-size:11px;color:var(--muted);font-family:'Victor Mono',monospace;line-height:1.8"></div>
     </div>
   </div>
@@ -1028,7 +1028,7 @@ select.det-input { cursor: pointer; }
   </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• BROWSE PANEL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ════════════════ BROWSE PANEL ════════════════ -->
 <div id="panelBrowse" style="display:none">
 
   <div class="browse-controls">
@@ -1043,7 +1043,7 @@ select.det-input { cursor: pointer; }
   </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• STATS PANEL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ════════════════ STATS PANEL ════════════════ -->
 <div id="panelStats" style="display:none">
   <div id="statsContent">
     <div class="stat-card"><div class="loading-row">connect your vault to see stats</div></div>
@@ -1055,14 +1055,14 @@ select.det-input { cursor: pointer; }
 
 <div class="detail-overlay" id="detailOverlay">
   <div class="detail-inner">
-    <button class="det-back" onclick="closeDetail()">â† back to collection</button>
+    <button class="det-back" onclick="closeDetail()"><- back to collection</button>
     <div id="detailContent"></div>
   </div>
 </div>
 
 <div class="detail-overlay" id="artistOverlay" style="z-index:210">
   <div class="detail-inner">
-    <button class="det-back" onclick="closeArtist()">â† back to record</button>
+    <button class="det-back" onclick="closeArtist()"><- back to record</button>
     <div id="artistContent"></div>
   </div>
 </div>
@@ -1080,7 +1080,7 @@ select.det-input { cursor: pointer; }
 </footer>
 
 <script>
-// â”€â”€ STOULT MODULE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── STOULT MODULE ────────────────────────────────────────────────────────────
 const STOULT = (() => {
   'use strict';
   const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -1107,7 +1107,7 @@ const STOULT = (() => {
       _token = storedToken; _tokenExp = storedExp; _user = parsedUser;
       return true;
     }
-    // Token expired but user is known â€” try silent refresh before showing gate
+    // Token expired but user is known - try silent refresh before showing gate
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
@@ -1179,7 +1179,7 @@ const STOULT = (() => {
     if (contentType) headers['Content-Type'] = contentType;
     const res = await fetch(`${DRIVE}${path}`, { method, headers, body: body !== undefined ? body : undefined });
     if (res.status === 404) return null;
-    if (!res.ok) { const err = new Error(`Drive ${method} ${path} â†’ ${res.status}`); err.status = res.status; throw err; }
+    if (!res.ok) { const err = new Error(`Drive ${method} ${path} -> ${res.status}`); err.status = res.status; throw err; }
     if (res.status === 204) return null;
     const ct = res.headers.get('content-type') || '';
     return ct.includes('json') ? res.json() : res.text();
@@ -1250,7 +1250,7 @@ const STOULT = (() => {
         const r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${this._ids[rel]}?uploadType=media`, {
           method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain; charset=utf-8' }, body: content,
         });
-        if (!r.ok) throw new Error(`Drive PATCH ${rel} â†’ ${r.status}: ${await r.text()}`);
+        if (!r.ok) throw new Error(`Drive PATCH ${rel} -> ${r.status}: ${await r.text()}`);
       } else {
         const parts = rel.split('/'); const name = parts.pop();
         const parentId = await this._dir(parts.join('/'));
@@ -1259,7 +1259,7 @@ const STOULT = (() => {
         const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
           method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/related; boundary=stoult_b' }, body,
         });
-        if (!r.ok) throw new Error(`Drive POST ${rel} â†’ ${r.status}: ${await r.text()}`);
+        if (!r.ok) throw new Error(`Drive POST ${rel} -> ${r.status}: ${await r.text()}`);
         this._ids[rel] = (await r.json()).id;
       }
     },
@@ -1279,7 +1279,7 @@ const STOULT = (() => {
         const r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${this._ids[rel]}?uploadType=media`, {
           method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': mimeType }, body: blob,
         });
-        if (!r.ok) throw new Error(`Drive PATCH binary ${rel} â†’ ${r.status}`);
+        if (!r.ok) throw new Error(`Drive PATCH binary ${rel} -> ${r.status}`);
       } else {
         const parts = rel.split('/'); const name = parts.pop();
         const parentId = await this._dir(parts.join('/'));
@@ -1294,7 +1294,7 @@ const STOULT = (() => {
         const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
           method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` }, body: combined,
         });
-        if (!r.ok) throw new Error(`Drive POST binary ${rel} â†’ ${r.status}`);
+        if (!r.ok) throw new Error(`Drive POST binary ${rel} -> ${r.status}`);
         this._ids[rel] = (await r.json()).id;
       }
     },
@@ -1437,9 +1437,9 @@ const BOOKS_BASE       = `${LEDGER_BASE}/Books`;
 const ARTWORK_BASE     = `${LEDGER_BASE}/Artwork`;
 let storage = null;
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 // STATE
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 let DISCOGS_TOKEN = '';
 let LASTFM_KEY = '';
 let selectedVinyl = null;
@@ -1461,9 +1461,9 @@ let currentAction = 'add';
 let currentSort = 'added';
 let activeFilters = {}; // { genre: 'Hip Hop', color: 'Red', ... }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 // INIT
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 async function init() {
   renderRecent();
   document.addEventListener('keydown', e => {
@@ -1499,9 +1499,9 @@ async function init() {
 }
 init();
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 // VAULT
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 async function connectLocalVault() {
   if (!window.showDirectoryPicker) { showToast('folder picker not supported on this browser', 'error'); return; }
   try {
@@ -1524,9 +1524,9 @@ async function initWithFSAL(handle) {
   storage = STOULT.FSALStorage;
   STOULT.setStorage(storage);
   updateVaultUI(handle.name);
-  showToast('vault connected â€” building index...', 'success');
+  showToast('vault connected - building index...', 'success');
   await Promise.all([loadConfig(), loadCollections()]);
-  showToast(`indexed ${vinylIndex.length} records Â· ${booksIndex.length} books`, 'success');
+  showToast(`indexed ${vinylIndex.length} records - ${booksIndex.length} books`, 'success');
   const activeNav = document.querySelector('.nav-btn.active')?.id;
   if (activeNav === 'navBrowse') renderBrowse();
   if (activeNav === 'navStats') renderStats();
@@ -1574,9 +1574,9 @@ async function initWithDrive() {
   storage = STOULT.DriveStorage;
   STOULT.setStorage(storage);
   updateVaultUI(user.email || user.name || 'google drive');
-  showToast('vault connected â€” building index...', 'success');
+  showToast('vault connected - building index...', 'success');
   await Promise.all([loadConfig(), loadCollections()]);
-  showToast(`indexed ${vinylIndex.length} records Â· ${booksIndex.length} books`, 'success');
+  showToast(`indexed ${vinylIndex.length} records - ${booksIndex.length} books`, 'success');
   const activeNav = document.querySelector('.nav-btn.active')?.id;
   if (activeNav === 'navBrowse') renderBrowse();
   if (activeNav === 'navStats') renderStats();
@@ -1636,9 +1636,9 @@ function updateVaultUI(displayName) {
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 // COLLECTION
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 let searchDebounce = null;
 
 let vinylIndex = []; // [{ filename, artist }]
@@ -1653,7 +1653,7 @@ async function loadCollections() {
       storage.ensureFolder(BOOKS_BASE),
       storage.ensureFolder(ARTWORK_BASE),
     ]);
-    // Just count files â€” content loads lazily when the browse view renders
+    // Just count files - content loads lazily when the browse view renders
     const [vf, bf, af] = await Promise.all([
       storage.listFiles(VINYL_BASE),
       storage.listFiles(BOOKS_BASE),
@@ -1677,14 +1677,14 @@ function parseRating(val) {
   // Numeric string
   const n = parseInt(s);
   if (!isNaN(n)) return n;
-  // Emoji stars: count â­ characters
-  return [...s].filter(c => c === 'â­' || c === 'â˜…').length;
+  // Fall back to counting star-like characters used by older or ASCII-safe files.
+  return [...s].filter(c => c === '*').length;
 }
 
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 // NAVIGATION
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 
 function switchType(type) {
   currentAddTab = type;
@@ -1735,9 +1735,9 @@ function switchAction(action) {
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 // BROWSE
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 
 // Full parsed collection cache for browse (loaded on demand)
 let browseCache = { vinyl: null, books: null, art: null };
@@ -1770,7 +1770,7 @@ function indexedFilesForBase(base) {
   return [];
 }
 
-// â”€â”€ IndexedDB browse cache â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── IndexedDB browse cache ───────────────────────────────────────────────────
 let _browseIDB = null;
 function _openBrowseIDB() {
   if (_browseIDB) return Promise.resolve(_browseIDB);
@@ -1803,7 +1803,7 @@ function renderBrowseCount(type, cacheKey, itemsCount, collectionCount) {
     ? Math.max(loadState.loaded || 0, collectionCount)
     : collectionCount;
   const countLabel = loadState.loading
-    ? `${itemsCount} shown Â· ${indexedCount} of ${totalKnown} ${label} indexed${loadState.failures ? ` Â· ${loadState.failures} skipped` : ''}`
+    ? `${itemsCount} shown - ${indexedCount} of ${totalKnown} ${label} indexed${loadState.failures ? ` - ${loadState.failures} skipped` : ''}`
     : `${itemsCount} of ${collectionCount} ${label}`;
   const sortOpts = [['title','a-z'],['added','date added'],['released','year released']];
   countEl.innerHTML = `<span>${countLabel}</span>
@@ -1970,7 +1970,7 @@ function renderGrid() {
   }
 
   const progressBanner = loadState.loading
-    ? `<div class="browse-progress-banner"><span class="spinner"></span>building ${label} index... ${indexedCount} / ${totalKnown}${loadState.failures ? ` Â· ${loadState.failures} skipped` : ''}</div>`
+    ? `<div class="browse-progress-banner"><span class="spinner"></span>building ${label} index... ${indexedCount} / ${totalKnown}${loadState.failures ? ` - ${loadState.failures} skipped` : ''}</div>`
     : '';
 
   grid.innerHTML = progressBanner + items.map(item =>
@@ -2113,18 +2113,18 @@ async function _refreshBrowseBackground(base, cacheKey, isArt, idbKey, indexedFi
   }
 }
 function renderVinylCard(item) {
-  const title = item.title || item.filename?.replace('.md','') || 'â€”';
-  const artist = Array.isArray(item.artist) ? item.artist[0] : (item.artist || 'â€”');
+  const title = item.title || item.filename?.replace('.md','') || '-';
+  const artist = Array.isArray(item.artist) ? item.artist[0] : (item.artist || '-');
   const year = item.year || '';
   const color = item.color || '';
   const genres = Array.isArray(item.genre) ? item.genre.slice(0,1) : (item.genre ? [item.genre] : []);
   const cover = safeMediaUrl(item._cover);
 
   return `<div class="coll-card" data-filename="${h(item.filename)}">
-    ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder">â™ª</div>`}
+    ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder">V</div>`}
     <div class="coll-info">
       <div class="coll-title">${h(title)}</div>
-      <div class="coll-sub">${h(artist)}${year ? ' Â· ' + h(year) : ''}</div>
+      <div class="coll-sub">${h(artist)}${year ? ' - ' + h(year) : ''}</div>
       <div class="coll-tags">
         ${color ? `<span class="coll-tag">${h(color)}</span>` : ''}
         ${genres.map(g => `<span class="coll-tag amber">${h(g)}</span>`).join('')}
@@ -2134,8 +2134,8 @@ function renderVinylCard(item) {
 }
 
 function renderBookCard(item) {
-  const title = item.title || item.filename?.replace('.md','') || 'â€”';
-  const author = Array.isArray(item.author) ? item.author[0] : (item.author || 'â€”');
+  const title = item.title || item.filename?.replace('.md','') || '-';
+  const author = Array.isArray(item.author) ? item.author[0] : (item.author || '-');
   const year = item.year || '';
   const status = item.status || '';
   const form = item.form || '';
@@ -2144,10 +2144,10 @@ function renderBookCard(item) {
   const statusColor = status === 'Read' ? 'amber' : '';
 
   return `<div class="coll-card" data-filename="${h(item.filename)}">
-    ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder">â˜°</div>`}
+    ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder">B</div>`}
     <div class="coll-info">
       <div class="coll-title">${h(title)}</div>
-      <div class="coll-sub">${h(author)}${year ? ' Â· ' + h(year) : ''}</div>
+      <div class="coll-sub">${h(author)}${year ? ' - ' + h(year) : ''}</div>
       <div class="coll-tags">
         ${status ? `<span class="coll-tag ${statusColor}">${h(status)}</span>` : ''}
         ${form ? `<span class="coll-tag">${h(form)}</span>` : ''}
@@ -2157,17 +2157,17 @@ function renderBookCard(item) {
 }
 
 function renderArtworkCard(item) {
-  const title   = item.title || item.filename?.replace('.md','') || 'â€”';
-  const artist  = Array.isArray(item.artist) ? item.artist[0] : (item.artist || 'â€”');
+  const title   = item.title || item.filename?.replace('.md','') || '-';
+  const artist  = Array.isArray(item.artist) ? item.artist[0] : (item.artist || '-');
   const year    = item.year || '';
   const mediums = Array.isArray(item.medium) ? item.medium.slice(0,2) : (item.medium ? [item.medium] : []);
   const cover   = safeMediaUrl(item._cover);
 
   return `<div class="coll-card" data-filename="${h(item.filename)}">
-    ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder" style="font-size:28px">ðŸŽ¨</div>`}
+    ${cover ? `<img class="coll-cover" src="${cover}" alt="" loading="lazy">` : `<div class="coll-cover-placeholder" style="font-size:28px">A</div>`}
     <div class="coll-info">
       <div class="coll-title">${h(title)}</div>
-      <div class="coll-sub">${h(artist)}${year ? ' Â· ' + h(year) : ''}</div>
+      <div class="coll-sub">${h(artist)}${year ? ' - ' + h(year) : ''}</div>
       <div class="coll-tags">
         ${mediums.map(m => `<span class="coll-tag amber">${h(m)}</span>`).join('')}
       </div>
@@ -2175,9 +2175,9 @@ function renderArtworkCard(item) {
   </div>`;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 // STATS
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 async function renderStats() {
   const el = document.getElementById('statsContent');
   if (!storage) {
@@ -2407,7 +2407,7 @@ function renderArtworkStats() {
           <div class="fav-card" onclick="switchAction('browse');switchType('art');setTimeout(()=>openDetail('${item.filename}'),300)">
             <img class="fav-cover" src="${item._cover}" alt="" loading="lazy">
             <div class="fav-title">${item.title || item.filename?.replace('.md','')}</div>
-            <div class="fav-sub">${Array.isArray(item.artist) ? item.artist[0] : (item.artist||'â€”')}</div>
+            <div class="fav-sub">${Array.isArray(item.artist) ? item.artist[0] : (item.artist||'-')}</div>
           </div>`).join('')}
       </div>
     </div>` : ''}
@@ -2427,7 +2427,7 @@ function renderVinylStats() {
   const topGenres = Object.entries(genreCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const maxGenre = topGenres[0]?.[1] || 1;
 
-  // Color distribution â€” split black from the rest
+  // Color distribution - split black from the rest
   const colorCounts = {};
   c.forEach(item => {
     if (item.color) {
@@ -2454,7 +2454,7 @@ function renderVinylStats() {
 
   // Avg rating
   const rated = c.filter(item => item.rating && parseRating(item.rating) > 0);
-  const avgRating = rated.length ? (rated.reduce((s,i) => s + parseRating(i.rating), 0) / rated.length).toFixed(1) : 'â€”';
+  const avgRating = rated.length ? (rated.reduce((s,i) => s + parseRating(i.rating), 0) / rated.length).toFixed(1) : '-';
 
   // Favorites (rating >= 7)
   const favorites = c
@@ -2523,18 +2523,18 @@ function renderVinylStats() {
 
     ${favorites.length > 0 ? `
     <div class="stat-card full">
-      <div class="stat-label">favorites <span style="opacity:0.45;font-size:10px;margin-left:6px">rated 7 or above Â· ${favorites.length} records</span></div>
+      <div class="stat-label">favorites <span style="opacity:0.45;font-size:10px;margin-left:6px">rated 7 or above - ${favorites.length} records</span></div>
       <div class="fav-grid">
         ${favorites.map(item => {
-          const title = item.title || item.filename?.replace('.md','') || 'â€”';
-          const artist = Array.isArray(item.artist) ? item.artist[0]?.replace(/\[\[|\]\]/g,'') : (item.artist || 'â€”');
+          const title = item.title || item.filename?.replace('.md','') || '-';
+          const artist = Array.isArray(item.artist) ? item.artist[0]?.replace(/\[\[|\]\]/g,'') : (item.artist || '-');
           const cover = safeMediaUrl(item._cover);
           const rating = parseRating(item.rating);
           return `<div class="fav-card">
-            ${cover ? `<img class="fav-cover" src="${cover}" alt="" loading="lazy">` : `<div class="fav-cover fav-cover-placeholder">â™ª</div>`}
+            ${cover ? `<img class="fav-cover" src="${cover}" alt="" loading="lazy">` : `<div class="fav-cover fav-cover-placeholder">V</div>`}
             <div class="fav-title">${h(title)}</div>
             <div class="fav-sub">${h(artist)}</div>
-            <div class="fav-rating">${'â˜…'.repeat(rating)}</div>
+            <div class="fav-rating">${'*'.repeat(rating)}</div>
           </div>`;
         }).join('')}
       </div>
@@ -2569,7 +2569,7 @@ function renderBookStats() {
   // Totals
   const read = c.filter(i => i.status === 'Read').length;
   const rated = c.filter(i => i.rating && parseRating(i.rating) > 0);
-  const avgRating = rated.length ? (rated.reduce((s,i)=>s+parseRating(i.rating),0)/rated.length).toFixed(1) : 'â€”';
+  const avgRating = rated.length ? (rated.reduce((s,i)=>s+parseRating(i.rating),0)/rated.length).toFixed(1) : '-';
 
   // Favorites (rating = 5)
   const favorites = c
@@ -2617,17 +2617,17 @@ function renderBookStats() {
 
     ${favorites.length > 0 ? `
     <div class="stat-card full">
-      <div class="stat-label">favorites <span style="opacity:0.45;font-size:10px;margin-left:6px">rated 5 stars Â· ${favorites.length} books</span></div>
+      <div class="stat-label">favorites <span style="opacity:0.45;font-size:10px;margin-left:6px">rated 5 stars - ${favorites.length} books</span></div>
       <div class="fav-grid">
         ${favorites.map(item => {
-          const title = item.title || item.filename?.replace('.md','') || 'â€”';
-          const author = Array.isArray(item.author) ? item.author[0]?.replace(/\[\[|\]\]/g,'') : (item.author || 'â€”');
+          const title = item.title || item.filename?.replace('.md','') || '-';
+          const author = Array.isArray(item.author) ? item.author[0]?.replace(/\[\[|\]\]/g,'') : (item.author || '-');
           const cover = safeMediaUrl(item._cover);
           return `<div class="fav-card">
-            ${cover ? `<img class="fav-cover" src="${cover}" alt="" loading="lazy">` : `<div class="fav-cover fav-cover-placeholder">â˜°</div>`}
+            ${cover ? `<img class="fav-cover" src="${cover}" alt="" loading="lazy">` : `<div class="fav-cover fav-cover-placeholder">B</div>`}
             <div class="fav-title">${h(title)}</div>
             <div class="fav-sub">${h(author)}</div>
-            <div class="fav-rating">â˜…â˜…â˜…â˜…â˜…</div>
+            <div class="fav-rating">*****</div>
           </div>`;
         }).join('')}
       </div>
@@ -2635,9 +2635,9 @@ function renderBookStats() {
   </div>`;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 // VINYL ADD
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 async function searchVinyl() {
   const artist = document.getElementById('vArtist').value.trim();
   const title = document.getElementById('vTitle').value.trim();
@@ -2655,7 +2655,7 @@ async function searchVinyl() {
     const res = await fetch(url);
     const data = await res.json();
     if (!data.results || data.results.length === 0) {
-      document.getElementById('vResults').innerHTML = '<p class="hint">no results â€” try adjusting the search</p>';
+      document.getElementById('vResults').innerHTML = '<p class="hint">no results - try adjusting the search</p>';
     } else {
       renderVinylResults(data.results.slice(0, 6));
     }
@@ -2676,10 +2676,10 @@ function renderVinylResults(results) {
           const albumTitle = parts.length > 1 ? parts.slice(1).join(' - ') : parts[0];
           const cover = r.cover_image && !r.cover_image.includes('spacer') ? safeMediaUrl(r.cover_image) : '';
           return `<div class="result-card" onclick="selectVinyl(${i})" id="vr-${i}">
-            ${cover ? `<img class="result-cover" src="${cover}" alt="" loading="lazy">` : `<div class="result-cover-placeholder">â™ª</div>`}
+            ${cover ? `<img class="result-cover" src="${cover}" alt="" loading="lazy">` : `<div class="result-cover-placeholder">V</div>`}
             <div class="result-info">
               <div class="result-title">${h(albumTitle)}</div>
-              <div class="result-sub">${h(r.year || 'â€”')}</div>
+              <div class="result-sub">${h(r.year || '-')}</div>
             </div>
           </div>`;
         }).join('')}
@@ -2705,7 +2705,7 @@ async function selectVinyl(index) {
 function renderVinylConfirm(data, fallback) {
   const title = data ? data.title : (fallback ? fallback.title.split(' - ').slice(1).join(' - ') : '');
   const artists = data?.artists ? data.artists.map(a => a.name.replace(/\s\(\d+\)$/, '')).join(', ') : document.getElementById('vArtist').value;
-  const year = data?.year || fallback?.year || 'â€”';
+  const year = data?.year || fallback?.year || '-';
   const cover = safeMediaUrl(data?.images?.[0]?.uri || fallback?.cover_image || '');
   const genres = data?.genres?.join(', ') || '';
   const color = document.getElementById('vColor').value.trim();
@@ -2715,10 +2715,10 @@ function renderVinylConfirm(data, fallback) {
     <div class="confirm-section">
       <div class="section-label">confirm & save</div>
       <div class="confirm-header">
-        ${cover && !cover.includes('spacer') ? `<img class="confirm-cover" src="${cover}" alt="">` : `<div class="confirm-cover-placeholder">â™ª</div>`}
+        ${cover && !cover.includes('spacer') ? `<img class="confirm-cover" src="${cover}" alt="">` : `<div class="confirm-cover-placeholder">V</div>`}
         <div class="confirm-meta">
           <div class="confirm-title">${h(title)}</div>
-          <div class="confirm-sub">${h(artists)} Â· ${h(year)}</div>
+          <div class="confirm-sub">${h(artists)} - ${h(year)}</div>
           ${genres ? `<span class="confirm-tag">${h(genres)}</span>` : ''}
         </div>
       </div>
@@ -2729,11 +2729,11 @@ function renderVinylConfirm(data, fallback) {
       <div class="field">
         <label>Rating</label>
         <div class="rating-row" id="vStars">
-          ${[1,2,3,4,5].map(n => `<span class="star" onclick="setVinylRating(${n})">â˜…</span>`).join('')}
+          ${[1,2,3,4,5].map(n => `<span class="star" onclick="setVinylRating(${n})">*</span>`).join('')}
         </div>
       </div>
-      <button class="btn-save" onclick="saveVinyl()">save to vault â†’</button>
-      <button class="btn-secondary" onclick="clearVinylConfirm()">â† back to results</button>
+      <button class="btn-save" onclick="saveVinyl()">save to vault -></button>
+      <button class="btn-secondary" onclick="clearVinylConfirm()"><- back to results</button>
     </div>`;
 }
 function clearVinylConfirm() {
@@ -2819,7 +2819,7 @@ ${notes}
     showToast(`saved: ${title}`, 'success');
     resetVinylForm();
     await loadCollections();
-  } catch(e) { showToast('save failed â€” check vault permissions', 'error'); }
+  } catch(e) { showToast('save failed - check vault permissions', 'error'); }
 }
 
 function resetVinylForm() {
@@ -2831,9 +2831,9 @@ function resetVinylForm() {
   selectedVinyl = null; vinylRating = 0;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 // BOOKS ADD
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 async function searchBooks() {
   const author = document.getElementById('bAuthor').value.trim();
   const title = document.getElementById('bTitle').value.trim();
@@ -2851,7 +2851,7 @@ async function searchBooks() {
     const res = await fetch(url);
     const data = await res.json();
     if (!data.docs || data.docs.length === 0) {
-      document.getElementById('bResults').innerHTML = '<p class="hint">no results â€” try adjusting the search</p>';
+      document.getElementById('bResults').innerHTML = '<p class="hint">no results - try adjusting the search</p>';
     } else {
       renderBookResults(data.docs.slice(0, 6));
     }
@@ -2870,10 +2870,10 @@ function renderBookResults(docs) {
         ${docs.map((d, i) => {
           const cover = d.cover_i ? safeMediaUrl(`https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg`) : '';
           return `<div class="result-card" onclick="selectBook(${i})" id="br-${i}">
-            ${cover ? `<img class="result-cover" src="${cover}" alt="" loading="lazy">` : `<div class="result-cover-placeholder">â˜°</div>`}
+            ${cover ? `<img class="result-cover" src="${cover}" alt="" loading="lazy">` : `<div class="result-cover-placeholder">B</div>`}
             <div class="result-info">
               <div class="result-title">${h(d.title)}</div>
-              <div class="result-sub">${h(d.first_publish_year || 'â€”')}</div>
+              <div class="result-sub">${h(d.first_publish_year || '-')}</div>
             </div>
           </div>`;
         }).join('')}
@@ -2892,7 +2892,7 @@ async function selectBook(index) {
       const res = await fetch(`https://openlibrary.org${doc.key}.json`);
       const work = await res.json();
       description = typeof work.description === 'string' ? work.description : work.description?.value || '';
-      if (description.length > 800) description = description.slice(0, 800).trimEnd() + 'â€¦';
+      if (description.length > 800) description = description.slice(0, 800).trimEnd() + '...';
     } catch(e) {}
   }
 
@@ -2910,10 +2910,10 @@ function renderBookConfirm(doc) {
     <div class="confirm-section">
       <div class="section-label">confirm & save</div>
       <div class="confirm-header">
-        ${cover ? `<img class="confirm-cover" src="${cover}" alt="">` : `<div class="confirm-cover-placeholder">â˜°</div>`}
+        ${cover ? `<img class="confirm-cover" src="${cover}" alt="">` : `<div class="confirm-cover-placeholder">B</div>`}
         <div class="confirm-meta">
           <div class="confirm-title">${h(doc.title)}</div>
-          <div class="confirm-sub">${h(author)} Â· ${h(doc.first_publish_year || 'â€”')}</div>
+          <div class="confirm-sub">${h(author)} - ${h(doc.first_publish_year || '-')}</div>
           ${doc.number_of_pages_median ? `<span class="confirm-tag">${h(doc.number_of_pages_median)} pages</span>` : ''}
         </div>
       </div>
@@ -2951,15 +2951,15 @@ function renderBookConfirm(doc) {
       <div class="field">
         <label>Rating</label>
         <div class="rating-row" id="bStars">
-          ${[1,2,3,4,5].map(n => `<span class="star" onclick="setBookRating(${n})">â˜…</span>`).join('')}
+          ${[1,2,3,4,5].map(n => `<span class="star" onclick="setBookRating(${n})">*</span>`).join('')}
         </div>
       </div>
       <div class="field">
         <label>Notes</label>
         <textarea id="bNotes" placeholder="Optional thoughts..."></textarea>
       </div>
-      <button class="btn-save" onclick="saveBook()">save to vault â†’</button>
-      <button class="btn-secondary" onclick="clearBookConfirm()">â† back to results</button>
+      <button class="btn-save" onclick="saveBook()">save to vault -></button>
+      <button class="btn-secondary" onclick="clearBookConfirm()"><- back to results</button>
     </div>`;
 }
 function clearBookConfirm() {
@@ -2988,7 +2988,7 @@ async function saveBook() {
   const sanitize = s => (s || '').replace(/[\\/:*?"<>|]/g, '-');
   const filename = sanitize(title) + '.md';
   const createdDate = new Date().toISOString().slice(0, 10);
-  const starRating = bookRating ? 'â­'.repeat(bookRating) + 'â˜†'.repeat(5 - bookRating) : '';
+  const starRating = bookRating ? '*'.repeat(bookRating) + '*'.repeat(5 - bookRating) : '';
 
   const content = `---
 category: "[[Books]]"
@@ -3053,7 +3053,7 @@ ${endDate ? `| Finished | ${endDate} |` : ''}
     showToast(`saved: ${title}`, 'success');
     resetBookForm();
     await loadCollections();
-  } catch(e) { showToast('save failed â€” check vault permissions', 'error'); }
+  } catch(e) { showToast('save failed - check vault permissions', 'error'); }
 }
 
 function resetBookForm() {
@@ -3064,9 +3064,9 @@ function resetBookForm() {
   selectedBook = null; bookRating = 0;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// BOOKS â€” BULK ENRICH
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
+// BOOKS - BULK ENRICH
+// ════════════════════════════════════════════
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function enrichBooks() {
@@ -3091,7 +3091,7 @@ async function enrichBooks() {
 
   for (let i = 0; i < fileList.length; i++) {
     const { name } = fileList[i];
-    btn.textContent = `processing ${i + 1} / ${fileList.length}â€¦`;
+    btn.textContent = `processing ${i + 1} / ${fileList.length}...`;
 
     let text;
     try {
@@ -3118,7 +3118,7 @@ async function enrichBooks() {
     const authorRaw = Array.isArray(meta.author) ? meta.author[0] : (meta.author || '');
     const author = authorRaw.replace(/\[\[|\]\]/g, '').trim();
 
-    // Search OL â€” prefer ISBN, fall back to title+author
+    // Search OL - prefer ISBN, fall back to title+author
     let doc = null;
     const rawIsbn = String(meta.isbn || '').replace(/[^0-9X]/gi, '');
     if (rawIsbn.length >= 10) {
@@ -3145,7 +3145,7 @@ async function enrichBooks() {
 
     if (!doc) {
       failed++;
-      addLog(`<span style="color:var(--faint)">âœ— ${h(title)}</span>`);
+      addLog(`<span style="color:var(--faint)">x ${h(title)}</span>`);
       await sleep(300);
       continue;
     }
@@ -3159,7 +3159,7 @@ async function enrichBooks() {
         description = typeof work.description === 'string'
           ? work.description
           : (work.description?.value || '');
-        if (description.length > 800) description = description.slice(0, 800).trimEnd() + 'â€¦';
+        if (description.length > 800) description = description.slice(0, 800).trimEnd() + '...';
       } catch(e) {}
     }
 
@@ -3199,10 +3199,10 @@ async function enrichBooks() {
       if (newText.includes('_No description available._')) {
         newText = newText.replace('_No description available._', description);
       } else if (newText.includes('## Synopsis')) {
-        // Empty synopsis section â€” insert description
+        // Empty synopsis section - insert description
         newText = newText.replace(/## Synopsis\n+(?=\n|---|##)/, `## Synopsis\n${description}\n\n`);
       } else {
-        // No Synopsis section at all â€” inject before My Notes or at end of frontmatter body
+        // No Synopsis section at all - inject before My Notes or at end of frontmatter body
         const insertAt = newText.indexOf('## My Notes');
         if (insertAt !== -1) {
           newText = newText.slice(0, insertAt) + `## Synopsis\n${description}\n\n---\n` + newText.slice(insertAt);
@@ -3215,10 +3215,10 @@ async function enrichBooks() {
     try {
       await storage.writeFile(`${BOOKS_BASE}/${name}`, newText);
       updated++;
-      addLog(`<span style="color:var(--green)">âœ“ ${h(title)}</span>`);
+      addLog(`<span style="color:var(--green)">ok ${h(title)}</span>`);
     } catch(e) {
       failed++;
-      addLog(`<span style="color:var(--red)">âœ— ${h(title)} (write error)</span>`);
+      addLog(`<span style="color:var(--red)">x ${h(title)} (write error)</span>`);
     }
 
     await sleep(450); // be kind to OL API
@@ -3227,17 +3227,17 @@ async function enrichBooks() {
   browseCache.books = null;
   booksCollection = [];
 
-  const summary = `<strong style="color:var(--cream)">${updated} updated Â· ${skipped} already complete Â· ${failed} not found</strong>`;
+  const summary = `<strong style="color:var(--cream)">${updated} updated - ${skipped} already complete - ${failed} not found</strong>`;
   log.unshift(summary);
   progress.innerHTML = log.slice(0, 21).join('<br>');
   btn.disabled = false;
-  btn.textContent = 'â†» enrich all books';
+  btn.textContent = 'refresh all books';
   showToast(`enriched ${updated} books`, updated > 0 ? 'success' : '');
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 // ARTWORK ADD
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 let artPhotoFile = null;
 
 function artPhotoChosen(input) {
@@ -3324,16 +3324,16 @@ created: ${createdDate}
 
     browseCache.art = null;
     artworkCollection = [];
-    addRecent({ type: 'art', title, sub: artist || 'â€”', cover: URL.createObjectURL(artPhotoFile) });
+    addRecent({ type: 'art', title, sub: artist || '-', cover: URL.createObjectURL(artPhotoFile) });
     showToast(`saved: ${title}`, 'success');
     resetArtworkForm();
     document.getElementById('artConfirm').innerHTML = `
       <div class="section" style="border-color:var(--border2)">
-        <div style="font-size:11px;color:var(--green);margin-bottom:8px">âœ“ ${h(title)} saved to vault</div>
-        <button class="btn-sm" onclick="switchAction('browse');switchType('art')">browse artwork â†’</button>
+        <div style="font-size:11px;color:var(--green);margin-bottom:8px">ok ${h(title)} saved to vault</div>
+        <button class="btn-sm" onclick="switchAction('browse');switchType('art')">browse artwork -></button>
       </div>`;
   } catch(e) {
-    showToast('save failed â€” check vault permissions', 'error');
+    showToast('save failed - check vault permissions', 'error');
     console.error(e);
   } finally {
     btn.disabled = false;
@@ -3353,9 +3353,9 @@ function resetArtworkForm() {
   artPhotoFile = null;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 // RECENT
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 function addRecent(entry) {
   recentEntries.unshift({ ...entry, ts: Date.now() });
   recentEntries = recentEntries.slice(0, 6);
@@ -3371,7 +3371,7 @@ function renderRecent() {
     const cover = e.cover && !e.cover.includes('spacer') ? safeMediaUrl(e.cover) : '';
     return `
     <div class="recent-item">
-      ${cover ? `<img class="recent-cover" src="${cover}" alt="">` : `<div class="recent-cover" style="display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--faint)">${e.type==='vinyl'?'â™ª':'â˜°'}</div>`}
+      ${cover ? `<img class="recent-cover" src="${cover}" alt="">` : `<div class="recent-cover" style="display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--faint)">${e.type==='vinyl'?'V':'B'}</div>`}
       <div>
         <div class="recent-title">${h(e.title)}</div>
         <div class="recent-sub">${h(e.sub)}</div>
@@ -3381,9 +3381,9 @@ function renderRecent() {
   }).join('');
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 // TOAST
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 let toastTimer;
 function showToast(msg, type='') {
   const t = document.getElementById('toast');
@@ -3418,9 +3418,9 @@ function safeMediaUrl(value) {
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 // LAST.FM
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════
 let lfmCache = {};
 
 async function fetchArtistInfo(artistName) {
@@ -3464,7 +3464,7 @@ let currentArtistName = null;
 async function openArtist(artistName) {
   currentArtistName = artistName;
   const el = document.getElementById('artistContent');
-  el.innerHTML = `<div class="browse-empty"><span class="spinner"></span> loading ${h(artistName)}â€¦</div>`;
+  el.innerHTML = `<div class="browse-empty"><span class="spinner"></span> loading ${h(artistName)}...</div>`;
   const overlay = document.getElementById('artistOverlay');
   overlay.classList.add('open');
   overlay.scrollTop = 0;
@@ -3523,25 +3523,25 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
   let html = `
     <div class="artist-hero">
       ${photoUrl ? `<img class="artist-photo" src="${photoUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-      <div class="artist-photo-ph"${photoUrl ? ' style="display:none"' : ''}>â™ª</div>
+      <div class="artist-photo-ph"${photoUrl ? ' style="display:none"' : ''}>V</div>
       <div class="artist-hero-info">
         <div class="artist-name">${h(artistName)}</div>
         ${listeners ? `<div class="artist-listeners">${h(listeners)} listeners on last.fm</div>` : ''}
         ${tags.length ? `<div class="det-tags" style="margin-bottom:14px">${tags.map(t => `<span class="coll-tag">${h(t)}</span>`).join('')}</div>` : ''}
-        ${bio ? `<div class="det-body-text">${h(bio.slice(0, 700).trimEnd())}${bio.length > 700 ? 'â€¦' : ''}</div>` : ''}
+        ${bio ? `<div class="det-body-text">${h(bio.slice(0, 700).trimEnd())}${bio.length > 700 ? '...' : ''}</div>` : ''}
       </div>
     </div>`;
 
   if (inCollection.length) {
     html += `
     <div class="det-section">
-      <div class="det-section-label">in your collection Â· ${inCollection.length} ${inCollection.length === 1 ? 'record' : 'records'}</div>
+      <div class="det-section-label">in your collection - ${inCollection.length} ${inCollection.length === 1 ? 'record' : 'records'}</div>
       <div class="det-related" style="margin-top:12px">
         ${inCollection.map(r => {
           const relCover = safeMediaUrl(r._cover);
           return `
           <div class="det-rel-item" onclick="closeArtist();openDetail(${jsq(r.filename)})">
-            ${relCover ? `<img src="${relCover}" alt="" loading="lazy">` : `<div class="det-rel-ph">â™ª</div>`}
+            ${relCover ? `<img src="${relCover}" alt="" loading="lazy">` : `<div class="det-rel-ph">V</div>`}
             <div>${h(r.title || r.filename?.replace('.md','') || '')}</div>
           </div>`;
         }).join('')}
@@ -3552,12 +3552,12 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
   if (notInCollection.length) {
     html += `
     <div class="det-section">
-      <div class="det-section-label">top albums Â· not in your collection</div>
+      <div class="det-section-label">top albums - not in your collection</div>
       <div class="det-related" style="margin-top:12px">
         ${notInCollection.map(a => {
           const cover = safeMediaUrl((a.image || []).slice().reverse().find(i => i['#text'])?.['#text'] || '');
           return `<div class="det-rel-item">
-            ${cover ? `<img src="${cover}" alt="" loading="lazy">` : `<div class="det-rel-ph">â™ª</div>`}
+            ${cover ? `<img src="${cover}" alt="" loading="lazy">` : `<div class="det-rel-ph">V</div>`}
             <div>${h(a.name)}</div>
           </div>`;
         }).join('')}
@@ -3574,7 +3574,7 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
           const ra = Array.isArray(r.artist) ? (r.artist[0] || '') : (r.artist || '');
           const relCover = safeMediaUrl(r._cover);
           return `<div class="det-rel-item" onclick="openArtist(${jsq(ra)})">
-            ${relCover ? `<img src="${relCover}" alt="" loading="lazy">` : `<div class="det-rel-ph">â™ª</div>`}
+            ${relCover ? `<img src="${relCover}" alt="" loading="lazy">` : `<div class="det-rel-ph">V</div>`}
             <div>${h(ra || r.title || '')}</div>
           </div>`;
         }).join('')}
@@ -3599,9 +3599,9 @@ function renderDetailPanel() {
 
   const cover = safeMediaUrl(item._cover);
   const coverUrl = safeMediaUrl(cover);
-  const title = item.title || item.filename?.replace('.md','') || 'â€”';
+  const title = item.title || item.filename?.replace('.md','') || '-';
   const starsHtml = Array.from({length:5}, (_,i) =>
-    `<span class="det-star${i < detailRating ? ' lit' : ''}" onclick="setDetailRating(${i+1})">â˜…</span>`
+    `<span class="det-star${i < detailRating ? ' lit' : ''}" onclick="setDetailRating(${i+1})">*</span>`
   ).join('');
 
   const cacheKey    = isArt ? 'art' : type;
@@ -3622,7 +3622,7 @@ function renderDetailPanel() {
           const relCover = safeMediaUrl(r._cover);
           return `
           <div class="det-rel-item" onclick="openDetail(${jsq(r.filename)})">
-            ${relCover ? `<img src="${relCover}" alt="" loading="lazy">` : `<div class="det-rel-ph">${isVinyl?'â™ª':'â˜°'}</div>`}
+            ${relCover ? `<img src="${relCover}" alt="" loading="lazy">` : `<div class="det-rel-ph">${isVinyl?'V':'B'}</div>`}
             <div>${h(r.title || r.filename)}</div>
           </div>`;
         }).join('')}
@@ -3630,7 +3630,7 @@ function renderDetailPanel() {
     </div>` : '';
 
   if (isVinyl) {
-    const artist   = Array.isArray(item.artist) ? item.artist.join(', ') : (item.artist || 'â€”');
+    const artist   = Array.isArray(item.artist) ? item.artist.join(', ') : (item.artist || '-');
     const genres   = Array.isArray(item.genre)  ? item.genre  : (item.genre  ? [item.genre]  : []);
     const styles   = Array.isArray(item.styles) ? item.styles : (item.styles ? [item.styles] : []);
     const tracklist    = extractBodySection(text, 'Tracklist');
@@ -3639,7 +3639,7 @@ function renderDetailPanel() {
     panel.innerHTML = `
       <div class="det-layout">
         <div class="det-left">
-          ${coverUrl ? `<img class="det-cover" src="${coverUrl}" alt="">` : `<div class="det-cover-ph">â™ª</div>`}
+          ${coverUrl ? `<img class="det-cover" src="${coverUrl}" alt="">` : `<div class="det-cover-ph">V</div>`}
           <div class="det-meta">
             <div class="det-field">
               <label>Color</label>
@@ -3654,11 +3654,11 @@ function renderDetailPanel() {
         </div>
         <div class="det-right">
           <div class="det-title">${h(title)}</div>
-          <div class="det-sub"><span class="artist-link" onclick="openArtist(${jsq(artist)})">${h(artist)}</span>${item.year ? ' Â· ' + h(item.year) : ''}</div>
+          <div class="det-sub"><span class="artist-link" onclick="openArtist(${jsq(artist)})">${h(artist)}</span>${item.year ? ' - ' + h(item.year) : ''}</div>
           <div class="det-tags">
             ${genres.map(g => `<span class="coll-tag amber">${h(g)}</span>`).join('')}
             ${styles.map(s => `<span class="coll-tag">${h(s)}</span>`).join('')}
-            ${item.master_id ? `<a href="https://www.discogs.com/master/${encodeURIComponent(String(item.master_id))}" target="_blank" rel="noopener noreferrer" class="coll-tag det-tag-link">discogs â†—</a>` : ''}
+            ${item.master_id ? `<a href="https://www.discogs.com/master/${encodeURIComponent(String(item.master_id))}" target="_blank" rel="noopener noreferrer" class="coll-tag det-tag-link">discogs -></a>` : ''}
           </div>
           ${tracklist ? `<div class="det-section"><div class="det-section-label">tracklist</div><pre class="det-tracklist">${h(tracklist)}</pre></div>` : ''}
           ${discogsNotes ? `<div class="det-section"><div class="det-section-label">notes from discogs</div><div class="det-body-text">${h(discogsNotes)}</div></div>` : ''}
@@ -3666,7 +3666,7 @@ function renderDetailPanel() {
         </div>
       </div>`;
   } else if (!isArt) {
-    const author   = Array.isArray(item.author) ? item.author.join(', ') : (item.author || 'â€”');
+    const author   = Array.isArray(item.author) ? item.author.join(', ') : (item.author || '-');
     const synopsis = extractBodySection(text, 'Synopsis');
     const rawNotes = extractBodySection(text, 'My Notes');
     const cleanNotes = rawNotes.replace(/\n*\*\*Rating:.*$/m, '').replace(/^_No notes yet\._$/, '').trim();
@@ -3674,7 +3674,7 @@ function renderDetailPanel() {
     panel.innerHTML = `
       <div class="det-layout">
         <div class="det-left">
-          ${coverUrl ? `<img class="det-cover" src="${coverUrl}" alt="">` : `<div class="det-cover-ph">â˜°</div>`}
+          ${coverUrl ? `<img class="det-cover" src="${coverUrl}" alt="">` : `<div class="det-cover-ph">B</div>`}
           <div class="det-meta">
             <div class="det-field">
               <label>Status</label>
@@ -3707,7 +3707,7 @@ function renderDetailPanel() {
         </div>
         <div class="det-right">
           <div class="det-title">${h(title)}</div>
-          <div class="det-sub">${h(author)}${item.year ? ' Â· ' + h(item.year) : ''}</div>
+          <div class="det-sub">${h(author)}${item.year ? ' - ' + h(item.year) : ''}</div>
           <div class="det-tags">
             ${item.pages ? `<span class="coll-tag">${h(item.pages)} pages</span>` : ''}
             ${item.publisher ? `<span class="coll-tag">${h(item.publisher)}</span>` : ''}
@@ -3721,21 +3721,21 @@ function renderDetailPanel() {
         </div>
       </div>`;
   } else if (isArt) {
-    const artist  = Array.isArray(item.artist) ? item.artist.join(', ') : (item.artist || 'â€”');
+    const artist  = Array.isArray(item.artist) ? item.artist.join(', ') : (item.artist || '-');
     const mediums = Array.isArray(item.medium) ? item.medium : (item.medium ? [item.medium] : []);
 
     panel.innerHTML = `
       <div class="det-layout">
         <div class="det-left">
-          ${coverUrl ? `<img class="det-cover" src="${coverUrl}" alt="" style="border-radius:var(--radius)">` : `<div class="det-cover-ph" style="font-size:40px">ðŸŽ¨</div>`}
+          ${coverUrl ? `<img class="det-cover" src="${coverUrl}" alt="" style="border-radius:var(--radius)">` : `<div class="det-cover-ph" style="font-size:40px">A</div>`}
           <div class="det-meta" style="margin-top:14px">
-            <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint)">${h(mediums.join(' Â· '))}</div>
+            <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint)">${h(mediums.join(' - '))}</div>
             ${item.created && item.created !== '{ date }' ? `<div style="font-size:9px;letter-spacing:0.1em;color:var(--faint);margin-top:4px">added ${h(item.created)}</div>` : ''}
           </div>
         </div>
         <div class="det-right">
           <div class="det-title">${h(title)}</div>
-          <div class="det-sub">${h(artist)}${item.year ? ' Â· ' + h(item.year) : ''}</div>
+          <div class="det-sub">${h(artist)}${item.year ? ' - ' + h(item.year) : ''}</div>
           <div class="det-tags">
             ${mediums.map(m => `<span class="coll-tag amber">${h(m)}</span>`).join('')}
           </div>
@@ -3794,18 +3794,18 @@ async function saveDetail() {
       detailItem.end_date   = document.getElementById('detEnd')?.value;
     }
 
-    showToast('saved âœ“', 'success');
+    showToast('saved', 'success');
     renderDetailPanel();
   } catch(e) { showToast('save failed', 'error'); console.error(e); }
 }
 
-// Event delegation â€” single listener for all card clicks
+// Event delegation - single listener for all card clicks
 document.getElementById('collectionGrid').addEventListener('click', e => {
   const card = e.target.closest('[data-filename]');
   if (card) openDetail(card.dataset.filename);
 });
 
-// Close on Escape â€” artist page first, then detail panel
+// Close on Escape - artist page first, then detail panel
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (document.getElementById('artistOverlay').classList.contains('open')) { closeArtist(); return; }
