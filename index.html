@@ -3711,6 +3711,105 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
 
   el.innerHTML = html;
 }
+
+let detailItem = null;
+let detailRating = 0;
+
+function detailBaseForType(type) {
+  return type === 'vinyl' ? VINYL_BASE : type === 'books' ? BOOKS_BASE : ARTWORK_BASE;
+}
+
+function extractBodySection(text, heading) {
+  const source = String(text || '').replace(/\r\n/g, '\n');
+  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = source.match(new RegExp(`## ${escapedHeading}\\n([\\s\\S]*?)(?=\\n## |\\n---\\n|$)`));
+  return match?.[1]?.trim() || '';
+}
+
+function closeDetail() {
+  document.getElementById('detailOverlay').classList.remove('open');
+}
+
+function findDetailSeed(filename) {
+  const groups = [
+    ['vinyl', browseCache.vinyl || vinylCollection],
+    ['books', browseCache.books || booksCollection],
+    ['art', browseCache.art || artworkCollection],
+  ];
+  for (const [type, items] of groups) {
+    const item = (items || []).find(entry => entry?.filename === filename);
+    if (item) return { type, item };
+  }
+  return null;
+}
+
+async function buildDetailItem(filename, type, seedItem = null) {
+  const base = detailBaseForType(type);
+  const raw = await storage.readFile(`${base}/${filename}`);
+  if (!raw) return null;
+
+  const normalized = raw.replace(/\r\n/g, '\n');
+  const { meta, body } = STOULT.parseFrontmatter(normalized);
+  const item = {
+    filename,
+    ...(seedItem || {}),
+    ...meta,
+    _type: type,
+    _fullText: normalized,
+  };
+
+  item._cover = seedItem?._cover
+    || body.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/)?.[1]
+    || null;
+  item._localImage = seedItem?._localImage
+    || body.match(/!\[\[([^\]]+\.(jpg|jpeg|png|webp|gif))\]\]/i)?.[1]
+    || null;
+
+  if (type === 'art' && !item._cover && item._localImage) {
+    item._cover = await resolveLocalImage(item._localImage);
+  }
+
+  return item;
+}
+
+async function openDetail(filename, typeHint = null) {
+  if (!storage || !filename) return;
+
+  const overlay = document.getElementById('detailOverlay');
+  const panel = document.getElementById('detailContent');
+  overlay.classList.add('open');
+  overlay.scrollTop = 0;
+  panel.innerHTML = `<div class="browse-empty"><span class="spinner"></span> loading details...</div>`;
+
+  try {
+    const seed = findDetailSeed(filename);
+    const candidateTypes = [];
+    if (typeHint) candidateTypes.push(typeHint);
+    if (seed?.type && !candidateTypes.includes(seed.type)) candidateTypes.push(seed.type);
+    ['vinyl', 'books', 'art'].forEach(type => {
+      if (!candidateTypes.includes(type)) candidateTypes.push(type);
+    });
+
+    let item = null;
+    for (const type of candidateTypes) {
+      item = await buildDetailItem(filename, type, seed?.item || null);
+      if (item) break;
+    }
+
+    if (!item) {
+      panel.innerHTML = `<div class="browse-empty">detail failed to load</div>`;
+      return;
+    }
+
+    detailItem = item;
+    detailRating = parseRating(item.rating);
+    renderDetailPanel();
+  } catch (e) {
+    console.error('detail load failed', e);
+    panel.innerHTML = `<div class="browse-empty">detail failed to load</div>`;
+  }
+}
+
 function setDetailRating(n) {
   detailRating = detailRating === n ? 0 : n;
   document.querySelectorAll('.det-star').forEach((s, i) => s.classList.toggle('lit', i < detailRating));
