@@ -742,6 +742,13 @@ select.det-input { cursor: pointer; }
 
 .det-save { width: 100%; margin-top: 16px; font-size: 9px; padding: 9px; }
 
+.reread-row { display: flex; align-items: center; justify-content: space-between; padding: 3px 0; }
+.reread-date { font-family: 'Victor Mono', monospace; font-size: 10px; color: var(--cream); }
+.reread-remove { background: none; border: none; color: var(--faint); font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1; }
+.reread-remove:hover { color: var(--red); }
+.reread-add { display: flex; gap: 6px; margin-top: 4px; align-items: center; }
+.reread-add .det-input { flex: 1; }
+
 .det-title {
   font-family: 'Crimson Text', serif;
   font-size: 22px;
@@ -2689,6 +2696,10 @@ function renderBookStats() {
       const yr = item.end_date.slice(0,4);
       if (yr && yr !== 'undefined') yearCounts[yr] = (yearCounts[yr]||0) + 1;
     }
+    const rereads = Array.isArray(item.rereads) ? item.rereads : [];
+    rereads.forEach(d => {
+      if (d) { const yr = String(d).slice(0,4); if (yr) yearCounts[yr] = (yearCounts[yr]||0) + 1; }
+    });
   });
   const years = Object.entries(yearCounts).sort((a,b)=>a[0].localeCompare(b[0]));
   const maxYear = years[0] ? Math.max(...years.map(y=>y[1])) : 1;
@@ -3928,6 +3939,7 @@ function renderArtistPage(artistName, info, topAlbums, photo) {
 
 let detailItem = null;
 let detailRating = 0;
+let detailRereads = [];
 
 function detailBaseForType(type) {
   return type === 'vinyl' ? VINYL_BASE : type === 'books' ? BOOKS_BASE : ARTWORK_BASE;
@@ -4017,6 +4029,7 @@ async function openDetail(filename, typeHint = null) {
 
     detailItem = item;
     detailRating = parseRating(item.rating);
+    detailRereads = Array.isArray(item.rereads) ? [...item.rereads] : [];
     renderDetailPanel();
   } catch (e) {
     console.error('detail load failed', e);
@@ -4027,6 +4040,34 @@ async function openDetail(filename, typeHint = null) {
 function setDetailRating(n) {
   detailRating = detailRating === n ? 0 : n;
   document.querySelectorAll('.det-star').forEach((s, i) => s.classList.toggle('lit', i < detailRating));
+}
+
+function renderRereadsSection() {
+  const el = document.getElementById('detRereads');
+  if (!el) return;
+  const rows = detailRereads.map((d, i) => `
+    <div class="reread-row">
+      <span class="reread-date">${h(d)}</span>
+      <button class="reread-remove" onclick="removeReread(${i})" title="remove">×</button>
+    </div>`).join('');
+  el.innerHTML = `${rows}
+    <div class="reread-add">
+      <input id="detRereadInput" class="det-input" type="date">
+      <button class="btn-save" onclick="addReread()" style="padding:4px 10px;font-size:9px;white-space:nowrap">add</button>
+    </div>`;
+}
+
+function addReread() {
+  const val = document.getElementById('detRereadInput')?.value;
+  if (!val || detailRereads.includes(val)) return;
+  detailRereads.push(val);
+  detailRereads.sort();
+  renderRereadsSection();
+}
+
+function removeReread(i) {
+  detailRereads.splice(i, 1);
+  renderRereadsSection();
 }
 
 function renderDetailPanel() {
@@ -4139,6 +4180,10 @@ function renderDetailPanel() {
               <input id="detEnd" class="det-input" type="date" value="${h(item.end_date||'')}">
             </div>
             <div class="det-field">
+              <label>Rereads</label>
+              <div id="detRereads"></div>
+            </div>
+            <div class="det-field">
               <label>Rating</label>
               <div class="det-stars">${starsHtml}</div>
             </div>
@@ -4160,6 +4205,7 @@ function renderDetailPanel() {
           ${relatedHtml}
         </div>
       </div>`;
+    renderRereadsSection();
   } else if (isArt) {
     const artist  = Array.isArray(item.artist) ? item.artist.join(', ') : (item.artist || '-');
     const mediums = Array.isArray(item.medium) ? item.medium : (item.medium ? [item.medium] : []);
@@ -4210,6 +4256,16 @@ async function saveDetail() {
       text = text.replace(/^start_date: ".*?"$/m,  `start_date: "${start}"`);
       text = text.replace(/^end_date: ".*?"$/m,    `end_date: "${end}"`);
 
+      // Update rereads list in frontmatter
+      const rereadBlock = detailRereads.length > 0
+        ? `rereads:\n${detailRereads.map(d => `  - "${d}"`).join('\n')}`
+        : 'rereads:';
+      if (/^rereads:/m.test(text)) {
+        text = text.replace(/^rereads:(?:\n  - "[^"]*")*/m, rereadBlock);
+      } else {
+        text = text.replace(/^(---\n[\s\S]*?)(---\n)/m, (_, front, close) => front + rereadBlock + '\n' + close);
+      }
+
       // Replace My Notes body section (up to next ---)
       const notes = document.getElementById('detNotes').value.trim() || '_No notes yet._';
       text = text.replace(/## My Notes\n[\s\S]*?\n---/, `## My Notes\n${notes}\n\n---`);
@@ -4232,6 +4288,7 @@ async function saveDetail() {
       detailItem.form       = document.getElementById('detForm')?.value;
       detailItem.start_date = document.getElementById('detStart')?.value;
       detailItem.end_date   = document.getElementById('detEnd')?.value;
+      detailItem.rereads    = [...detailRereads];
     }
 
     showToast('saved', 'success');
