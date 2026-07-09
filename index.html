@@ -1827,6 +1827,177 @@ function browseCacheKey(cacheKey) {
   return vaultId ? `${vaultId}:${cacheKey}` : null;
 }
 
+// ── Collection index (_index.json) ──────────────────────────────────────────
+// Derived data: one JSON file per collection holding every record's
+// frontmatter + cover reference, rewritten on every save. Startup reads this
+// one file instead of downloading each .md individually. The .md files remain
+// canonical; the index can always be rebuilt from them (rescan).
+const INDEX_FILE = '_index.json';
+const INDEX_VERSION = 1;
+
+// Strip fields that don't belong in the persisted index: bodies are never
+// read by browse/stats, and data: URLs (locally resolved art covers) would
+// bloat the file — the _localImage reference is enough to re-resolve them.
+function indexableItem(item) {
+  const out = { ...item };
+  delete out._body;
+  if (typeof out._cover === 'string' && out._cover.startsWith('data:')) delete out._cover;
+  return out;
+}
+
+// Build a collection item from raw .md text — must mirror the builders in
+// readAllMdFiles / readArtworkFiles so write-through items match swept items.
+function itemFromRaw(filename, raw, isArt) {
+  const { meta, body } = STOULT.parseFrontmatter(raw || '');
+  const _localImage = body.match(/!\[\[([^\]]+\.(jpg|jpeg|png|webp|gif))\]\]/i)?.[1] || null;
+  if (isArt) {
+    const _cover = body.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/)?.[1] || null;
+    return { filename, title: filename.replace('.md', ''), ...meta, _cover, _localImage };
+  }
+  const _cover = extractMarkdownCoverUrl(body) || null;
+  return { filename, ...meta, _cover, _localImage };
+}
+
+async function resolveArtCovers(items) {
+  for (const item of items) {
+    if (!item._cover && item._localImage) {
+      try { item._cover = await resolveLocalImage(item._localImage); } catch {}
+    }
+  }
+  return items;
+}
+
+async function readCollectionIndex(base) {
+  try {
+    const raw = await storage.readFile(`${base}/${INDEX_FILE}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.v !== INDEX_VERSION || !Array.isArray(parsed.items)) return null;
+    return parsed.items;
+  } catch { return null; }
+}
+
+async function writeCollectionIndex(base, items) {
+  const payload = JSON.stringify({
+    v: INDEX_VERSION,
+    updated: new Date().toISOString(),
+    items: items.map(indexableItem),
+  });
+  await storage.writeFile(`${base}/${INDEX_FILE}`, payload);
+}
+
+function addToFileListing(base, filename) {
+  const list = base === VINYL_BASE ? vinylIndex : base === BOOKS_BASE ? booksIndex : artworkIndex;
+  if (!list.some(f => f.name === filename)) list.push({ name: filename, file: true });
+}
+
+// Load a collection from its index file, reconciling against the folder
+// listing captured at startup: files added outside the app are read
+// individually and merged in; index entries whose file is gone are dropped.
+// Returns null when no usable index exists (caller falls back to a full sweep).
+async function loadCollectionFromIndex(base, isArt) {
+  const indexItems = await readCollectionIndex(base);
+  if (!indexItems) return null;
+
+  const folderNames = new Set(indexedFilesForBase(base).map(f => f.name));
+  let items = indexItems;
+  let changed = false;
+
+  // Only trust the listing for deletions when it actually returned something;
+  // an empty listing more likely means it wasn't loaded than an emptied vault.
+  if (folderNames.size) {
+    items = indexItems.filter(i => i.filename && folderNames.has(i.filename));
+    changed = items.length !== indexItems.length;
+    const known = new Set(items.map(i => i.filename));
+    const missing = [...folderNames].filter(n => !known.has(n));
+    if (missing.length) {
+      const files = missing.map(name => ({ name, file: true }));
+      const extra = isArt ? await readArtworkFiles(base, files) : await readAllMdFiles(base, files);
+      items = items.concat(extra);
+      changed = true;
+    }
+  }
+
+  if (isArt) await resolveArtCovers(items);
+  if (changed) writeCollectionIndex(base, items).catch(e => console.error('index write failed', e));
+  return items;
+}
+
+// Write-through after a single record is saved: update the in-memory
+// collection, the IndexedDB cache, and the persisted index — no full reload.
+async function upsertCollectionIndex(type, filename, raw) {
+  const isArt = type === 'art';
+  const base = statsBaseForType(type);
+  const cacheKey = statsCacheKeyForType(type);
+  const item = itemFromRaw(filename, raw, isArt);
+  if (isArt && !item._cover && item._localImage) {
+    try { item._cover = await resolveLocalImage(item._localImage); } catch {}
+  }
+
+  addToFileListing(base, filename);
+
+  let items = browseCache[cacheKey];
+  if (!items) items = await readCollectionIndex(base);
+  if (!items) return; // no index yet - next browse/stats bootstraps it via full sweep
+
+  const at = items.findIndex(x => x.filename === filename);
+  if (at >= 0) items[at] = item; else items.push(item);
+
+  browseCache[cacheKey] = items;
+  setStatsCollection(type, []); // stats re-derive from browseCache on next render
+  const idbKey = browseCacheKey(cacheKey);
+  if (idbKey) idbSet(idbKey, items);
+  try { await writeCollectionIndex(base, items); }
+  catch (e) { console.error('index write failed', e); }
+}
+
+// Full rescan: re-list the folder, read every .md, rewrite the index.
+// Covers records edited or deleted outside the app (e.g. in Obsidian).
+async function rebuildCollectionIndex(type) {
+  const isArt = type === 'art';
+  const base = statsBaseForType(type);
+  const cacheKey = statsCacheKeyForType(type);
+  const files = (await storage.listFiles(base)).filter(f => f.file && f.name.endsWith('.md'));
+  if (base === VINYL_BASE) vinylIndex = files;
+  else if (base === BOOKS_BASE) booksIndex = files;
+  else artworkIndex = files;
+
+  setBrowseLoadState(cacheKey, { loading: true, loaded: 0, total: files.length, failures: 0 });
+  const onProgress = ({ loaded, total, failures }) => {
+    setBrowseLoadState(cacheKey, { loading: loaded < total, loaded, total, failures });
+    if (currentAction === 'browse' && currentBrowseType === type) {
+      renderBrowseCount(type, cacheKey, (browseCache[cacheKey] || []).length, (browseCache[cacheKey] || []).length);
+    }
+  };
+  try {
+    const items = isArt ? await readArtworkFiles(base, files, onProgress) : await readAllMdFiles(base, files, onProgress);
+    await writeCollectionIndex(base, items);
+    browseCache[cacheKey] = items;
+    setStatsCollection(type, []);
+    const idbKey = browseCacheKey(cacheKey);
+    if (idbKey) idbSet(idbKey, items);
+  } finally {
+    clearBrowseLoadState(cacheKey);
+  }
+}
+
+async function rebuildBrowseIndex() {
+  if (!storage) { showToast('connect vault first', 'error'); return; }
+  const type = currentBrowseType;
+  showToast('rescanning vault files...');
+  try {
+    await rebuildCollectionIndex(type);
+    showToast('index rebuilt', 'success');
+  } catch (e) {
+    console.error(e);
+    showToast('rescan failed', 'error');
+  }
+  if (currentAction === 'browse' && currentBrowseType === type) {
+    renderFilterBar();
+    renderGrid();
+  }
+}
+
 function renderBrowseCount(type, cacheKey, itemsCount, collectionCount) {
   const countEl = document.getElementById('browseCount');
   const label = type === 'vinyl' ? 'records' : type === 'books' ? 'books' : 'pieces';
@@ -1842,7 +2013,7 @@ function renderBrowseCount(type, cacheKey, itemsCount, collectionCount) {
   countEl.innerHTML = `<span>${countLabel}</span>
     <span class="sort-chips">${sortOpts.map(([v,l]) =>
       `<span class="sort-chip${currentSort===v?' active':''}" onclick="setSort('${v}')">${l}</span>`
-    ).join('')}</span>`;
+    ).join('')}<span class="sort-chip" onclick="rebuildBrowseIndex()" title="re-scan vault files (after editing notes in Obsidian)">rescan</span></span>`;
 }
 
 async function renderBrowse() {
@@ -2085,10 +2256,22 @@ async function filterCollection() {
       });
       renderFilterBar();
       renderGrid();
-      _refreshBrowseBackground(base, cacheKey, isArt, idbKey, filesForLoad);
+      _refreshBrowseFromIndex(base, cacheKey, isArt, idbKey, filesForLoad);
       return;
     }
 
+    // No session cache - try the persisted index first (one file read).
+    const fromIndex = await loadCollectionFromIndex(base, isArt);
+    if (fromIndex) {
+      browseCache[cacheKey] = fromIndex;
+      clearBrowseLoadState(cacheKey);
+      if (idbKey && fromIndex.length) idbSet(idbKey, fromIndex);
+      renderFilterBar();
+      renderGrid();
+      return;
+    }
+
+    // No index yet - full sweep, then persist it as the index (bootstrap).
     browseCache[cacheKey] = [];
     setBrowseLoadState(cacheKey, {
       loading: true,
@@ -2118,6 +2301,7 @@ async function filterCollection() {
         failures: Math.max(0, (totalIndexed || fresh.length) - fresh.length),
       });
       if (idbKey && fresh.length) idbSet(idbKey, fresh);
+      if (fresh.length) writeCollectionIndex(base, fresh).catch(e => console.error('index write failed', e));
     } catch(e) {
       console.error(e);
       if (browseCache[cacheKey]?.length) {
@@ -2135,7 +2319,30 @@ async function filterCollection() {
   renderFilterBar();
   renderGrid();
 }
-async function _refreshBrowseBackground(base, cacheKey, isArt, idbKey, indexedFiles = indexedFilesForBase(base)) {
+// Background revalidation after painting from the session/IDB cache.
+// Reads the persisted index (one file) instead of re-downloading the whole
+// collection; falls back to a full sweep only when no index exists yet.
+async function _refreshBrowseFromIndex(base, cacheKey, isArt, idbKey, indexedFiles = indexedFilesForBase(base)) {
+  const browseType = cacheKey === 'art' ? 'art' : cacheKey;
+  try {
+    const fromIndex = await loadCollectionFromIndex(base, isArt);
+    if (fromIndex) {
+      browseCache[cacheKey] = fromIndex;
+      clearBrowseLoadState(cacheKey);
+      if (idbKey) idbSet(idbKey, fromIndex);
+      if (currentAction === 'browse' && currentBrowseType === browseType) {
+        renderFilterBar();
+        renderGrid();
+      }
+      return;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  await _refreshBrowseBySweep(base, cacheKey, isArt, idbKey, indexedFiles);
+}
+
+async function _refreshBrowseBySweep(base, cacheKey, isArt, idbKey, indexedFiles = indexedFilesForBase(base)) {
   const browseType = cacheKey === 'art' ? 'art' : cacheKey;
   const currentItems = browseCache[cacheKey] || [];
   const totalIndexed = Array.isArray(indexedFiles)
@@ -2176,6 +2383,7 @@ async function _refreshBrowseBackground(base, cacheKey, isArt, idbKey, indexedFi
       failures: Math.max(0, (totalIndexed || fresh.length) - fresh.length),
     });
     if (idbKey) idbSet(idbKey, fresh);
+    writeCollectionIndex(base, fresh).catch(e => console.error('index write failed', e));
     if (currentAction === 'browse' && currentBrowseType === browseType) {
       renderFilterBar();
       renderGrid();
@@ -2289,11 +2497,23 @@ function renderStatsLoading(type, loaded = 0, total = 0, failures = 0) {
 
 async function loadStatsCollection(type, onProgress) {
   const base = statsBaseForType(type);
+  const isArt = type === 'art';
+
+  // Persisted index first (one file read) - full sweep only as bootstrap.
+  const fromIndex = await loadCollectionFromIndex(base, isArt);
+  if (fromIndex) {
+    const idbKey = browseCacheKey(statsCacheKeyForType(type));
+    if (idbKey && fromIndex.length) idbSet(idbKey, fromIndex);
+    return fromIndex;
+  }
+
   const indexedFiles = indexedFilesForBase(base);
   const filesForLoad = indexedFiles.length ? indexedFiles : null;
-  return type === 'art'
-    ? readArtworkFiles(base, filesForLoad, onProgress)
-    : readAllMdFiles(base, filesForLoad, onProgress);
+  const items = isArt
+    ? await readArtworkFiles(base, filesForLoad, onProgress)
+    : await readAllMdFiles(base, filesForLoad, onProgress);
+  if (items.length) writeCollectionIndex(base, items).catch(e => console.error('index write failed', e));
+  return items;
 }
 
 async function renderStats() {
@@ -2424,7 +2644,7 @@ async function readAllMdFiles(base, filesOverride, onProgress) {
   return readMdFiles(base, filesOverride, async (file, meta, body) => {
     const _cover = extractMarkdownCoverUrl(body) || null;
     const _localImage = body.match(/!\[\[([^\]]+\.(jpg|jpeg|png|webp|gif))\]\]/i)?.[1] || null;
-    return { filename: file.name, ...meta, _body: body, _cover, _localImage };
+    return { filename: file.name, ...meta, _cover, _localImage };
   }, onProgress);
 }
 async function resolveLocalImage(filename) {
@@ -2451,7 +2671,7 @@ async function readArtworkFiles(base, filesOverride, onProgress) {
   return readMdFiles(base, filesOverride, async (file, meta, body) => {
     const _cover = body.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/)?.[1] || null;
     const _localImage = body.match(/!\[\[([^\]]+\.(jpg|jpeg|png|webp|gif))\]\]/i)?.[1] || null;
-    const item = { filename: file.name, title: file.name.replace('.md', ''), ...meta, _body: body, _cover, _localImage };
+    const item = { filename: file.name, title: file.name.replace('.md', ''), ...meta, _cover, _localImage };
     if (!item._cover && item._localImage) {
       item._cover = await resolveLocalImage(item._localImage);
     }
@@ -2965,7 +3185,7 @@ ${notes}
     addRecent({ type: 'vinyl', title, sub: artists.join(', '), cover: coverUrl });
     showToast(`saved: ${title}`, 'success');
     resetVinylForm();
-    await loadCollections();
+    await upsertCollectionIndex('vinyl', filename, content);
   } catch(e) { showToast('save failed - check vault permissions', 'error'); }
 }
 
@@ -3133,8 +3353,11 @@ async function enrichVinyl() {
     await sleep(650);
   }
 
-  browseCache.vinyl = null;
-  vinylCollection = [];
+  if (updated > 0) {
+    addLog('<span style="color:var(--muted)">rebuilding index...</span>');
+    try { await rebuildCollectionIndex('vinyl'); }
+    catch (e) { console.error(e); }
+  }
 
   const summary = `<strong style="color:var(--cream)">${updated} updated - ${skipped} already complete - ${failed} not found</strong>`;
   log.unshift(summary);
@@ -3365,7 +3588,7 @@ ${endDate ? `| Finished | ${endDate} |` : ''}
     addRecent({ type: 'book', title, sub: author, cover });
     showToast(`saved: ${title}`, 'success');
     resetBookForm();
-    await loadCollections();
+    await upsertCollectionIndex('books', filename, content);
   } catch(e) { showToast('save failed - check vault permissions', 'error'); }
 }
 
@@ -3537,8 +3760,11 @@ async function enrichBooks() {
     await sleep(450); // be kind to OL API
   }
 
-  browseCache.books = null;
-  booksCollection = [];
+  if (updated > 0) {
+    addLog('<span style="color:var(--muted)">rebuilding index...</span>');
+    try { await rebuildCollectionIndex('books'); }
+    catch (e) { console.error(e); }
+  }
 
   const summary = `<strong style="color:var(--cream)">${updated} updated - ${skipped} already complete - ${failed} not found</strong>`;
   log.unshift(summary);
@@ -3635,8 +3861,7 @@ created: ${createdDate}
       }
     }
 
-    browseCache.art = null;
-    artworkCollection = [];
+    await upsertCollectionIndex('art', mdFilename, content);
     addRecent({ type: 'art', title, sub: artist || '-', cover: URL.createObjectURL(artPhotoFile) });
     showToast(`saved: ${title}`, 'success');
     resetArtworkForm();
@@ -4273,9 +4498,8 @@ async function saveDetail() {
 
     await storage.writeFile(`${base}/${detailItem.filename}`, text);
 
-    // Bust cache so grid reflects any changes (status, color)
-    browseCache[type] = null;
-    if (isVinyl) vinylCollection = []; else booksCollection = [];
+    // Write-through so grid reflects any changes (status, color)
+    await upsertCollectionIndex(type, detailItem.filename, text);
     filterCollection();
 
     // Update in-memory item and re-render panel
